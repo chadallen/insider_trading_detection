@@ -1,0 +1,15 @@
+How it works
+
+We pull ~120 recently resolved markets and score each one across four signals:
+
+VPIN — Models for detecting insider trading in financial markets (Easley, López de Prado & O'Hara, 2011, 2012)
+
+Time-weighted VPIN — same, but weighted toward moves closer to resolution
+
+Resolution surprise — how wrong was the market's implied probability vs. what actually happened?
+
+Late move ratio — what % of total price movement happened right before resolution?
+
+We then run Isolation Forest across all four signals to rank markets by how anomalous they look.
+
+Note: Polymarket only gives us 12h price granularity for closed markets, so VPIN is approximated from price movement rather than actual order flow. No labeled training data yet — this is unsupervised ~120 markets is a small sample
