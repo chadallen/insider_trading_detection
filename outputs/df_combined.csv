@@ -1,16 +1,119 @@
 question,price_score,wallet_score,combined_score
-Will the Bitcoin Volatility Index hit 70 in 2026?,0.06774410166170042,0.8,0.43387205083085023
-Bitcoin -12% daily candle change in 2026?,0.007039274149466479,0.8,0.40351963707473326
-Over $10M committed to the Trove public sale?,0.0008644000363088322,0.8,0.40043220001815444
-Over $15M committed to the Trove public sale?,-0.003669233189289911,0.8,0.39816538340535507
-Owlto FDV above $200M one day after launch?,0.08560212927207034,0.7,0.39280106463603515
-Harmonix FDV above $8M one day after launch?,0.02341956380057253,0.7,0.36170978190028624
-"Will Bitcoin dip to $65,000 by December 31, 2026?",0.04867627314840617,0.6,0.3243381365742031
-Will the AAVE token alignment proposal pass?,-0.002016933418053868,0.6,0.29899153329097305
-Trove FDV above $5M one day after launch?,0.07253746812288464,0.5,0.2862687340614423
-Over $10M committed to the Infinex public sale?,0.012937404810007047,0.5,0.2564687024050035
-HumidiFi FDV above $300M one day after launch?,0.15096688607615993,0.3,0.22548344303807996
-Tria FDV above $200M one day after launch?,0.02714611304023795,0.4,0.213573056520119
-Over $2M committed to the Infinex public sale?,0.024641454061807844,0.4,0.21232072703090393
-Will Almanak FDV above $50M one day after launch?,0.12384348796540512,0.3,0.21192174398270255
-Kinetiq FDV above $250M one day after launch?,0.03353979255864059,0.2,0.1167698962793203
+Will the Bitcoin Volatility Index hit 70 in 2026?,0.031096618317968505,0.8,0.4155483091589843
+Rainbow FDV above $30M one day after launch?,0.0023222763055774642,0.8,0.40116113815278875
+Over $20M committed to the Space public sale?,0.03880119428830431,0.6,0.31940059714415214
+Over $500K committed to the Sol Raffle public sale?,0.02154862559253712,0.6,0.31077431279626855
+Hyperlend FDV above $20M one day after launch?,0.003509071210040182,0.6,0.3017545356050201
+Elsa FDV above $100M one day after launch?,-0.0007787604735562947,0.6,0.29961061976322184
+"Will Bitcoin dip to $65,000 by December 31, 2026?",-0.0365059432066428,0.6,0.2817470283966786
+Sentient FDV above $1B one day after launch?,0.13316670014017695,0.4,0.2665833500700885
+Lighter FDV above $3B one day after launch?,-0.01640617660475896,0.5,0.24179691169762052
+Sentient FDV above $800M one day after launch?,0.03189242312824925,0.4,0.21594621156412463
+Will Almanak FDV above $50M one day after launch?,0.09071047427116063,0.3,0.1953552371355803
+HumidiFi FDV above $300M one day after launch?,0.08161500469261862,0.3,0.1908075023463093
+Tria FDV above $200M one day after launch?,-0.03144493927965153,0.4,0.18427753036017425
+Kinetiq FDV above $250M one day after launch?,0.041073191493083305,0.2,0.12053659574654166
+Stable FDV above $2B one day after launch?,0.07700954343514854,0.1,0.08850477171757427
+Over $7M committed to the Fabric public sale?,0.0018171077716314654,0.0,0.0009085538858157327
+Will the AAVE token alignment proposal pass?,-0.022667651681397172,0.0,-0.011333825840698586
+Bitcoin -7% daily candle change in 2026?,-0.0257871495612787,0.0,-0.01289357478063935
+Hyperswap FDV above $40M one day after launch?,-0.03274309668320852,0.0,-0.01637154834160426
+Zama FDV above $1B one day after launch?,-0.034936992514007614,0.0,-0.017468496257003807
+Over $5M committed to the Sol Raffle public sale?,-0.037391342451351006,0.0,-0.018695671225675503
+Lighter FDV above $4B one day after launch?,-0.03851106634990442,0.0,-0.01925553317495221
+Over $2M committed to the Infinex public sale?,-0.039447603531947095,0.0,-0.019723801765973548
+Will the Ethereum Volatility Index hit 70 in 2026?,-0.041534800894831525,0.0,-0.020767400447415763
+Over $18M committed to the Space public sale?,-0.041755155802711164,0.0,-0.020877577901355582
+Brevis FDV above $100M one day after launch?,-0.05194090309628169,0.0,-0.025970451548140844
+Zama FDV above $400M one day after launch?,-0.0524144502215933,0.0,-0.02620722511079665
+"Will Bitcoin dip to $75,000 by December 31, 2026?",-0.05468595246455055,0.0,-0.027342976232275273
+Over $1M committed to the Sol Raffle public sale?,-0.059437013896586954,0.0,-0.029718506948293477
+Over $5M committed to the Bitway public sale?,-0.05954672860186577,0.0,-0.029773364300932886
+Kinetiq FDV above $1B one day after launch?,-0.06177521026763949,0.0,-0.030887605133819745
+Espresso FDV above $200M one day after launch?,-0.06468549253645889,0.0,-0.032342746268229444
+Will the Ethereum Volatility Index hit 80 in 2026?,-0.0659056066483093,0.0,-0.03295280332415465
+Bitcoin -8% daily candle change in 2026?,-0.06862766850148239,0.0,-0.03431383425074119
+Sentient FDV above $600M one day after launch?,-0.0691184132667047,0.0,-0.03455920663335235
+Elsa FDV above $50M one day after launch?,-0.06998081054853539,0.0,-0.034990405274267694
+Fogo FDV above $700M one day after launch?,-0.07489772743872153,0.0,-0.037448863719360764
+Over $2M committed to the Trove public sale?,-0.07754554487317544,0.0,-0.03877277243658772
+Flying Tulip FDV above $2B one day after launch?,-0.07856381845294713,0.0,-0.039281909226473566
+Moonbirds FDV above $100M one day after launch?,-0.08003060118194016,0.0,-0.04001530059097008
+Bitcoin -11% daily candle change in 2026?,-0.081597344379224,0.0,-0.040798672189612
+HumidiFi FDV above $200M one day after launch?,-0.08250038833365708,0.0,-0.04125019416682854
+Brevis FDV above $300M one day after launch?,-0.0858528127018996,0.0,-0.0429264063509498
+VOOI FDV above $1.5B one day after launch?,-0.08642222840139008,0.0,-0.04321111420069504
+Flying Tulip FDV above $1.5B one day after launch?,-0.08642409122073474,0.0,-0.04321204561036737
+Over $10M committed to the Fabric public sale?,-0.08656619711900432,0.0,-0.04328309855950216
+Bitcoin 8% daily candle change in 2026?,-0.08701817089936004,0.0,-0.04350908544968002
+Will Almanak FDV above $80M one day after launch?,-0.08706072442260904,0.0,-0.04353036221130452
+"Will UNI dip to $3.00 by December 31, 2026?",-0.08810803141198176,0.0,-0.04405401570599088
+Zama auction clearing price above $0.04?,-0.08950237790534993,0.0,-0.044751188952674964
+HumidiFi FDV above $100M one day after launch?,-0.09047429154048547,0.0,-0.04523714577024274
+Moonbirds FDV above $500M one day after launch?,-0.090606744889627,0.0,-0.0453033724448135
+ETHGAS FDV above $700M one day after launch?,-0.09187027513764223,0.0,-0.045935137568821116
+Aztec FDV above $1.5B one day after launch?,-0.09687768674157338,0.0,-0.04843884337078669
+Kodiak FDV above $25M one day after launch?,-0.09707079332381979,0.0,-0.048535396661909896
+Hyperswap FDV above $1B one day after launch?,-0.09733463154650218,0.0,-0.04866731577325109
+Over $25M committed to the Trove public sale?,-0.09971006160647361,0.0,-0.049855030803236805
+Zama FDV above $600M one day after launch?,-0.10007239606653767,0.0,-0.050036198033268836
+Fogo FDV above $300M one day after launch?,-0.10028479349037267,0.0,-0.050142396745186335
+Over $20M committed to the Fabric public sale?,-0.10085051761436131,0.0,-0.050425258807180656
+Over $20M committed to the Infinex public sale?,-0.1021244433092739,0.0,-0.05106222165463695
+Superform FDV above $300M one day after launch?,-0.1034206456093762,0.0,-0.0517103228046881
+Harmonix FDV above $15M one day after launch?,-0.10357110530322206,0.0,-0.05178555265161103
+Immunefi FDV above $1B one day after launch?,-0.1038731681409531,0.0,-0.05193658407047655
+Over $26M committed to the Space public sale?,-0.10525618540048026,0.0,-0.05262809270024013
+"Will Chainlink reach $14 by December 31, 2026?",-0.10689151889671433,0.0,-0.053445759448357166
+Infinex FDV above $800M one day after launch?,-0.1083563039655645,0.0,-0.05417815198278225
+ETHGAS FDV above $200M one day after launch?,-0.11090146322683908,0.0,-0.05545073161341954
+Moonbirds FDV above $600M one day after launch?,-0.1112205218771159,0.0,-0.05561026093855795
+DoubleZero FDV above $1B one day after launch?,-0.11171505435753487,0.0,-0.055857527178767435
+Sentient FDV above $1.5B one day after launch?,-0.112287974295945,0.0,-0.0561439871479725
+Hyperswap FDV above $100M one day after launch?,-0.1151558030934966,0.0,-0.0575779015467483
+Zama FDV above $3B one day after launch?,-0.11562607330995717,0.0,-0.05781303665497858
+Over $16M committed to the Space public sale?,-0.11653927337640346,0.0,-0.05826963668820173
+Will the Bitcoin Volatility Index hit 60 in 2026?,-0.11705795939023605,0.0,-0.05852897969511803
+"Will XRP dip to $1.60 by December 31, 2026?",-0.11761507895414086,0.0,-0.05880753947707043
+VOOI FDV above $800M one day after launch?,-0.11764080429274953,0.0,-0.05882040214637477
+"Will Dogecoin dip to $0.14 by December 31, 2026?",-0.11775831788473456,0.0,-0.05887915894236728
+ETHGAS FDV above $400M one day after launch?,-0.11850494014207541,0.0,-0.059252470071037705
+Espresso FDV above $400M one day after launch?,-0.11895831764535608,0.0,-0.05947915882267804
+Will February be the best month for Bitcoin in 2026?,-0.11976520735693819,0.0,-0.05988260367846909
+Espresso FDV above $300M one day after launch?,-0.1202716171860077,0.0,-0.06013580859300385
+Will CryptoPunks floor price reach 30 ETH before 2027?,-0.12047810470351294,0.0,-0.06023905235175647
+Over $14M committed to the Space public sale?,-0.12114393216851294,0.0,-0.06057196608425647
+"Will Opinion launch a token by February 28, 2026?",-0.12144286866836562,0.0,-0.06072143433418281
+Bitcoin 6% daily candle change in 2026?,-0.12148832390910713,0.0,-0.060744161954553566
+Fabric FDV above $700M one day after launch?,-0.12300087635172258,0.0,-0.06150043817586129
+"Will Aster dip to $0.60 by December 31, 2026?",-0.12302951347997865,0.0,-0.061514756739989324
+"Will Hyperliquid dip to $28 by December 31, 2026?",-0.12373602061109068,0.0,-0.06186801030554534
+Rainbow FDV above $400M one day after launch?,-0.1244774844881068,0.0,-0.0622387422440534
+Bitway FDV above $200M one day after launch?,-0.12587756958873314,0.0,-0.06293878479436657
+Will Almanak FDV above $100M one day after launch?,-0.12628876929848282,0.0,-0.06314438464924141
+"Will Trove launch a token by December 31, 2026?",-0.1285070616427959,0.0,-0.06425353082139795
+Rainbow FDV above $1B one day after launch?,-0.12852679840221015,0.0,-0.06426339920110508
+Will Almanak FDV above $120M one day after launch?,-0.1298023570028421,0.0,-0.06490117850142105
+Ranger FDV above $30M one day after launch?,-0.13117779614772318,0.0,-0.06558889807386159
+Will Fogo launch a token by September 30 2026?,-0.13166641655490496,0.0,-0.06583320827745248
+"Will Tria launch a token by September 30, 2026?",-0.13180931586036604,0.0,-0.06590465793018302
+Zama auction clearing price above $0.07?,-0.13228302765647482,0.0,-0.06614151382823741
+"Will XRP dip to $1.40 by December 31, 2026?",-0.13300416171688806,0.0,-0.06650208085844403
+Immunefi FDV above $200M one day after launch?,-0.13328206683768534,0.0,-0.06664103341884267
+Yieldbasis FDV above $1B one day after launch?,-0.1347755069380812,0.0,-0.0673877534690406
+Tria FDV above $20M one day after launch?,-0.13651242029616367,0.0,-0.06825621014808184
+"Will ETHGAS launch a token by June 30, 2026?",-0.13658754009406826,0.0,-0.06829377004703413
+Zama auction clearing price above $0.08?,-0.13966531694366086,0.0,-0.06983265847183043
+Tria FDV above $100M one day after launch?,-0.14000408162584904,0.0,-0.07000204081292452
+"Will Kodiak launch a token by March 31, 2026?",-0.1426188495565573,0.0,-0.07130942477827865
+Canton FDV above $3B one day after launch?,-0.1437756457699063,0.0,-0.07188782288495316
+Will Lighter dip to $1.5 before 2027?,-0.14424046964466442,0.0,-0.07212023482233221
+Rainbow FDV above $100M one day after launch?,-0.14473512895456758,0.0,-0.07236756447728379
+Tria FDV above $300M one day after launch?,-0.1454696693518165,0.0,-0.07273483467590824
+Aztec FDV above $800M one day after launch?,-0.14573255631571497,0.0,-0.07286627815785748
+"Will UNI dip to $4.50 by December 31, 2026?",-0.14776108719880854,0.0,-0.07388054359940427
+Tria FDV above $50M one day after launch?,-0.1514124305784173,0.0,-0.07570621528920865
+Harmonix FDV above $25M one day after launch?,-0.15208469199594887,0.0,-0.07604234599797444
+Canton FDV above $10B one day after launch?,-0.1537772559939189,0.0,-0.07688862799695945
+"Will ETHGAS launch a token by March 31, 2026?",-0.15484264156753919,0.0,-0.07742132078376959
+Harmonix FDV above $100M one day after launch?,-0.15824771133020415,0.0,-0.07912385566510208
