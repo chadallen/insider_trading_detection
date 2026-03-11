@@ -28,7 +28,6 @@ RF_WALLET_FEATURES = [
     "new_wallet_ratio",
     "new_wallet_ratio_6h",
     "burst_score",
-    "directional_consensus",
     "trade_vpin",
 ]
 
@@ -64,11 +63,16 @@ def build_combined(df_scored: pd.DataFrame, df_wallet_agg: pd.DataFrame | None) 
         else pd.DataFrame()
     )
     if not df_wallet.empty:
+        # Normalize burst_score: max trades in any single hour / total trades (0–1 burstiness ratio)
+        if "burst_score" in df_wallet.columns and "trade_count" in df_wallet.columns:
+            df_wallet["burst_score"] = (
+                df_wallet["burst_score"] / df_wallet["trade_count"].replace(0, np.nan)
+            )
         df_wallet["wallet_score"] = df_wallet.apply(
             lambda row: compute_wallet_score(row.to_dict()), axis=1
         )
 
-    # Merge
+    # Merge — keep directional_consensus for wallet_score calculation but not RF features
     wallet_cols = ["question", "wallet_score", "new_wallet_ratio", "new_wallet_ratio_6h",
                    "burst_score", "directional_consensus", "trade_vpin"]
     df_combined = df_price.merge(
