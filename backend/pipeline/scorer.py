@@ -25,6 +25,8 @@ RF_PRICE_FEATURES = [
 ]
 
 RF_WALLET_FEATURES = [
+    "new_wallet_ratio",
+    "new_wallet_ratio_6h",
     "burst_score",
     "directional_consensus",
     "trade_vpin",
@@ -67,7 +69,8 @@ def build_combined(df_scored: pd.DataFrame, df_wallet_agg: pd.DataFrame | None) 
         )
 
     # Merge
-    wallet_cols = ["question", "wallet_score", "burst_score", "directional_consensus", "trade_vpin"]
+    wallet_cols = ["question", "wallet_score", "new_wallet_ratio", "new_wallet_ratio_6h",
+                   "burst_score", "directional_consensus", "trade_vpin"]
     df_combined = df_price.merge(
         df_wallet[wallet_cols]
         if not df_wallet.empty and all(c in df_wallet.columns for c in wallet_cols)
@@ -122,7 +125,9 @@ def train_classifier(
     # ── Step 1: Impute wallet feature NaNs with column median ─────────────
     imputed_cols = []
     for col in RF_WALLET_FEATURES:
-        if col in df.columns and df[col].isna().any():
+        if col not in df.columns:
+            df[col] = np.nan
+        if df[col].isna().any():
             median_val = df[col].median()
             fill_val   = median_val if pd.notna(median_val) else 0.0
             df[col]    = df[col].fillna(fill_val)
