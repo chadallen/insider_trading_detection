@@ -28,7 +28,6 @@ RF_WALLET_FEATURES = [
     "new_wallet_ratio",
     "new_wallet_ratio_6h",
     "burst_score",
-    "directional_consensus",
     "trade_vpin",
 ]
 
@@ -38,7 +37,9 @@ RF_FEATURES = RF_PRICE_FEATURES + RF_WALLET_FEATURES
 # known insider trading positives for training.
 POSITIVE_KEYWORDS = [
     "Maduro", "Machado", "Khamenei", "Venezuela",
-    "ZachXBT", "Taylor Swift", "Ophelia", "Gemini 3", "Iran",
+    "ZachXBT", "Taylor Swift", "Ophelia", "Gemini 3",
+    # Confirmed insider trading — Feb 28 strike specifically, not all Iran markets
+    "US strikes Iran by February 28",
 ]
 
 
@@ -66,11 +67,19 @@ def build_combined(df_scored: pd.DataFrame, df_wallet_agg: pd.DataFrame | None) 
         else pd.DataFrame()
     )
     if not df_wallet.empty:
+        # Dune returns all numeric columns as strings — coerce to float
+        numeric_cols = ["burst_score", "trade_vpin", "directional_consensus",
+                        "new_wallet_ratio", "new_wallet_ratio_6h",
+                        "total_volume", "trade_count", "unique_wallets"]
+        for col in numeric_cols:
+            if col in df_wallet.columns:
+                df_wallet[col] = pd.to_numeric(df_wallet[col], errors="coerce")
+
         df_wallet["wallet_score"] = df_wallet.apply(
             lambda row: compute_wallet_score(row.to_dict()), axis=1
         )
 
-    # Merge
+    # Merge — keep directional_consensus for wallet_score calculation but not RF features
     wallet_cols = ["question", "wallet_score", "new_wallet_ratio", "new_wallet_ratio_6h",
                    "burst_score", "directional_consensus", "trade_vpin"]
     df_combined = df_price.merge(

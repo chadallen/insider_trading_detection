@@ -42,6 +42,9 @@ const fmtDate = (s) => {
 
 // ── sub-components ───────────────────────────────────────────────────────────
 function ScoreBar({ value, colorClass }) {
+  if (value == null || isNaN(value)) {
+    return <span className="tabular-nums text-gray-600 text-xs w-12 text-right">—</span>
+  }
   const pct = Math.max(0, Math.min(1, value)) * 100
   return (
     <div className="flex items-center gap-2 justify-end">
@@ -87,12 +90,13 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
   return (
     <div className="divide-y divide-gray-800/40">
       {/* Column headers — hidden on small screens */}
-      <div className={`hidden sm:grid gap-x-4 px-3 pb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-widest ${showProb ? 'sm:grid-cols-[2rem_1fr_auto_auto_auto_auto]' : 'sm:grid-cols-[2rem_1fr_auto_auto_auto_auto]'}`}>
+      <div className="hidden sm:grid sm:grid-cols-[2rem_1fr_auto_auto_auto_auto_auto] gap-x-4 px-3 pb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">
         <span>#</span>
         <span>Market Question</span>
-        <span className="text-right">{showProb ? 'Ends in' : 'Price'}</span>
-        <span className="text-right">{showProb ? 'Price' : 'Wallet'}</span>
-        <span className="text-right">{showProb ? 'RF Prob' : 'Combined'}</span>
+        <span className="text-right">Price</span>
+        <span className="text-right">Wallet</span>
+        <span className="text-right">Combined</span>
+        <span className="text-right">RF Prob</span>
         <span className="text-center">Risk</span>
       </div>
 
@@ -112,34 +116,23 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
               aria-expanded={isOpen}
             >
               {/* Desktop layout */}
-              <div className="hidden sm:grid sm:grid-cols-[2rem_1fr_auto_auto_auto_auto] gap-x-4 items-center">
+              <div className="hidden sm:grid sm:grid-cols-[2rem_1fr_auto_auto_auto_auto_auto] gap-x-4 items-center">
                 <span className="text-gray-600 text-xs tabular-nums">{i + 1}</span>
                 <span className="text-gray-200 text-sm truncate pr-2">{row.question}</span>
-
-                {showProb ? (
-                  <span className="text-gray-500 text-xs text-right tabular-nums">
-                    {until ? <span className="text-emerald-400">{until}</span> : '—'}
-                  </span>
-                ) : (
-                  <ScoreBar value={row.price_score} colorClass={row.price_score > 0.08 ? 'bg-orange-400' : 'bg-blue-500'} />
-                )}
-
-                {showProb ? (
-                  <ScoreBar value={row.price_score} colorClass={row.price_score > 0.08 ? 'bg-orange-400' : 'bg-blue-500'} />
-                ) : (
-                  <ScoreBar value={row.wallet_score ?? 0} colorClass={(row.wallet_score ?? 0) >= 0.6 ? 'bg-purple-400' : 'bg-indigo-500'} />
-                )}
-
-                {showProb ? (
-                  <span className={`tabular-nums font-semibold text-sm text-right ${SCORE_COLOR[lvl]}`}>
-                    {row.insider_trading_prob != null ? row.insider_trading_prob.toFixed(3) : '—'}
-                  </span>
-                ) : (
-                  <span className={`tabular-nums font-semibold text-sm text-right ${SCORE_COLOR[lvl]}`}>
-                    {row.combined_score.toFixed(4)}
-                  </span>
-                )}
-
+                <ScoreBar
+                  value={row.price_score}
+                  colorClass={row.price_score > 0.08 ? 'bg-orange-400' : 'bg-blue-500'}
+                />
+                <ScoreBar
+                  value={row.wallet_score}
+                  colorClass={row.wallet_score >= 0.6 ? 'bg-purple-400' : 'bg-indigo-500'}
+                />
+                <span className={`tabular-nums font-semibold text-sm text-right ${SCORE_COLOR[lvl]}`}>
+                  {row.combined_score.toFixed(4)}
+                </span>
+                <span className="tabular-nums text-xs text-right text-gray-400">
+                  {row.insider_trading_prob != null ? row.insider_trading_prob.toFixed(3) : '—'}
+                </span>
                 <div className="flex items-center justify-between gap-2">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-semibold tracking-wide ${BADGE[lvl]}`}>
                     {lvl.toUpperCase()}
@@ -186,24 +179,14 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                   </div>
                 </div>
 
-                {/* RF prob + end_date for live markets */}
-                {showProb && (
-                  <div className="mb-4 flex flex-wrap gap-4 text-xs">
-                    {row.insider_trading_prob != null && (
-                      <span className="text-gray-400">
-                        RF probability: <span className={`font-semibold tabular-nums ${SCORE_COLOR[lvl]}`}>{row.insider_trading_prob.toFixed(3)}</span>
-                      </span>
-                    )}
-                    {until && (
-                      <span className="text-gray-400">
-                        Resolves in: <span className="text-emerald-400 font-semibold">{until}</span>
-                      </span>
-                    )}
-                    {row.combined_score != null && (
-                      <span className="text-gray-400">
-                        Combined score: <span className="text-gray-200 font-semibold tabular-nums">{row.combined_score.toFixed(4)}</span>
-                      </span>
-                    )}
+                {/* RF probability — full-width summary row */}
+                {row.insider_trading_prob != null && (
+                  <div className="mb-4 flex items-center justify-between border border-gray-700/50 rounded-lg px-4 py-2.5 bg-gray-800/30">
+                    <span className="text-xs text-gray-400">RF Insider-Trading Probability</span>
+                    <span className="tabular-nums font-bold text-sm text-gray-200">
+                      {(row.insider_trading_prob * 100).toFixed(1)}%
+                      <span className="text-gray-600 font-normal text-xs ml-1">(model in training)</span>
+                    </span>
                   </div>
                 )}
 

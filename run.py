@@ -297,22 +297,24 @@ def _preflight(df_combined):
 
 
 def _write_outputs(df_combined, df_scored, df_wallet_agg):
-    """Write CSVs to outputs/ and dashboard/public/ (Vercel static assets)."""
+    """Write CSVs to outputs/ and mirror to dashboard/public/ for local dev."""
     root = os.path.dirname(__file__)
-    out_dir    = os.path.join(root, "outputs")
-    public_dir = os.path.join(root, "dashboard", "public")
-    os.makedirs(out_dir, exist_ok=True)
-    os.makedirs(public_dir, exist_ok=True)
+    dirs = [
+        os.path.join(root, "outputs"),
+        os.path.join(root, "dashboard", "public"),
+    ]
+    for d in dirs:
+        os.makedirs(d, exist_ok=True)
 
-    def _write(df, filename):
-        if df is None:
-            return
-        df.to_csv(os.path.join(out_dir, filename), index=False)
-        df.to_csv(os.path.join(public_dir, filename), index=False)
-
-    _write(df_combined,   "df_combined.csv")
-    _write(df_scored,     "df_scored.csv")
-    _write(df_wallet_agg, "df_wallet_agg.csv")
+    pairs = [
+        (df_combined,   "df_combined.csv"),
+        (df_scored,     "df_scored.csv"),
+        (df_wallet_agg, "df_wallet_agg.csv"),
+    ]
+    for df, fname in pairs:
+        if df is not None:
+            for d in dirs:
+                df.to_csv(os.path.join(d, fname), index=False)
 
     print(f"\nOutputs written to outputs/ and dashboard/public/")
 
