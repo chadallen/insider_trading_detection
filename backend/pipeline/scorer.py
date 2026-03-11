@@ -122,7 +122,9 @@ def train_classifier(
     # ── Step 1: Impute wallet feature NaNs with column median ─────────────
     imputed_cols = []
     for col in RF_WALLET_FEATURES:
-        if col in df.columns and df[col].isna().any():
+        if col not in df.columns:
+            df[col] = np.nan
+        if df[col].isna().any():
             median_val = df[col].median()
             fill_val   = median_val if pd.notna(median_val) else 0.0
             df[col]    = df[col].fillna(fill_val)
