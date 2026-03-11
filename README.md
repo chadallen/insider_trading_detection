@@ -2,7 +2,7 @@
 
 A system that automatically scans resolved [Polymarket](https://polymarket.com) prediction markets and flags ones that show signs of insider trading.
 
-**[Live Dashboard](https://polymarket-dashboard-roan.vercel.app/)**
+**[Live Dashboard](https://dashboard-rouge-pi-13.vercel.app/)**
 
 ---
 
