@@ -63,6 +63,14 @@ def build_combined(df_scored: pd.DataFrame, df_wallet_agg: pd.DataFrame | None) 
         else pd.DataFrame()
     )
     if not df_wallet.empty:
+        # Dune returns all numeric columns as strings — coerce to float
+        numeric_cols = ["burst_score", "trade_vpin", "directional_consensus",
+                        "new_wallet_ratio", "new_wallet_ratio_6h",
+                        "total_volume", "trade_count", "unique_wallets"]
+        for col in numeric_cols:
+            if col in df_wallet.columns:
+                df_wallet[col] = pd.to_numeric(df_wallet[col], errors="coerce")
+
         df_wallet["wallet_score"] = df_wallet.apply(
             lambda row: compute_wallet_score(row.to_dict()), axis=1
         )
