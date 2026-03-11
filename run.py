@@ -18,6 +18,8 @@ import argparse
 import os
 import sys
 from datetime import datetime, timezone
+from dotenv import load_dotenv
+load_dotenv()
 
 # Allow running from repo root without installing
 sys.path.insert(0, os.path.dirname(__file__))
