@@ -176,18 +176,26 @@ def _preflight(df_combined):
 
 
 def _write_outputs(df_combined, df_scored, df_wallet_agg):
-    """Write CSVs to outputs/ so the dashboard can read them locally."""
-    out_dir = os.path.join(os.path.dirname(__file__), "outputs")
-    os.makedirs(out_dir, exist_ok=True)
+    """Write CSVs to outputs/ and mirror to dashboard/public/ for local dev."""
+    root = os.path.dirname(__file__)
+    dirs = [
+        os.path.join(root, "outputs"),
+        os.path.join(root, "dashboard", "public"),
+    ]
+    for d in dirs:
+        os.makedirs(d, exist_ok=True)
 
-    if df_combined is not None:
-        df_combined.to_csv(os.path.join(out_dir, "df_combined.csv"), index=False)
-    if df_scored is not None:
-        df_scored.to_csv(os.path.join(out_dir, "df_scored.csv"), index=False)
-    if df_wallet_agg is not None:
-        df_wallet_agg.to_csv(os.path.join(out_dir, "df_wallet_agg.csv"), index=False)
+    pairs = [
+        (df_combined,   "df_combined.csv"),
+        (df_scored,     "df_scored.csv"),
+        (df_wallet_agg, "df_wallet_agg.csv"),
+    ]
+    for df, fname in pairs:
+        if df is not None:
+            for d in dirs:
+                df.to_csv(os.path.join(d, fname), index=False)
 
-    print(f"\nOutputs written to outputs/")
+    print(f"\nOutputs written to outputs/ and dashboard/public/")
 
 
 if __name__ == "__main__":
