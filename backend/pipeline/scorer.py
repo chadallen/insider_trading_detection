@@ -37,7 +37,9 @@ RF_FEATURES = RF_PRICE_FEATURES + RF_WALLET_FEATURES
 # known insider trading positives for training.
 POSITIVE_KEYWORDS = [
     "Maduro", "Machado", "Khamenei", "Venezuela",
-    "ZachXBT", "Taylor Swift", "Ophelia", "Gemini 3", "Iran",
+    "ZachXBT", "Taylor Swift", "Ophelia", "Gemini 3",
+    # Confirmed insider trading — Feb 28 strike specifically, not all Iran markets
+    "US strikes Iran by February 28",
 ]
 
 
