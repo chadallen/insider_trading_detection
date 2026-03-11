@@ -75,7 +75,7 @@ def main():
         build_price_features, enrich_with_dune_vpin, score_with_isolation_forest
     )
     from backend.pipeline.wallet_features import fetch_top_n_wallet_data
-    from backend.pipeline.scorer import build_combined, train_classifier
+    from backend.pipeline.scorer import build_combined, train_classifier, RF_FEATURES, RF_WALLET_FEATURES
     from backend.config import TOP_N_MARKETS
 
     top_n = args.top_n or TOP_N_MARKETS
@@ -90,8 +90,9 @@ def main():
             sys.exit(1)
         print(f"Loaded df_combined: {len(df_combined)} markets")
 
+        _preflight(df_combined)
         print("\n=== Training RF classifier ===")
-        df_combined, rf_model, rf_scaler = train_classifier(
+        df_combined, rf_model, rf_scaler, _ = train_classifier(
             df_combined, n_neg=args.n_neg
         )
         cp.save("df_combined", df_combined)
@@ -144,8 +145,9 @@ def main():
     df_combined = build_combined(df_scored, df_wallet_agg)
 
     # ── Train classifier ──────────────────────────────────────────────────
+    _preflight(df_combined)
     print("\n=== Training RF classifier ===")
-    df_combined, rf_model, rf_scaler = train_classifier(df_combined, n_neg=args.n_neg)
+    df_combined, rf_model, rf_scaler, _ = train_classifier(df_combined, n_neg=args.n_neg)
     cp.save("df_combined", df_combined)
 
     # ── Write outputs ─────────────────────────────────────────────────────
@@ -155,6 +157,20 @@ def main():
         push_to_github(df_combined, df_scored, df_wallet_agg)
 
     print("\nDone.")
+
+
+def _preflight(df_combined):
+    """Print NaN counts per RF feature so you can see what's populated before training."""
+    from backend.pipeline.scorer import RF_FEATURES, RF_WALLET_FEATURES
+    print("\n=== Pre-flight: feature NaN counts ===")
+    for feat in RF_FEATURES:
+        if feat in df_combined.columns:
+            n_null = df_combined[feat].isna().sum()
+            n_ok   = df_combined[feat].notna().sum()
+            tag    = " <- needs wallet query" if n_null > 0 and feat in RF_WALLET_FEATURES else ""
+            print(f"  {feat:<25} {n_ok:>4} present  {n_null:>4} NaN{tag}")
+        else:
+            print(f"  {feat:<25}  MISSING COLUMN — check scorer.py")
 
 
 def _write_outputs(df_combined, df_scored, df_wallet_agg):

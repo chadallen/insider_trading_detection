@@ -11,16 +11,26 @@ from backend.pipeline.wallet_features import compute_wallet_score
 
 # ── RF configuration ──────────────────────────────────────────────────────
 
-RF_FEATURES = [
+# Price features are present for all markets after price scoring.
+# Wallet features are only present for TOP_N markets after the wallet query.
+# The classifier imputes missing wallet features with column medians so
+# every market can participate in training and scoring.
+
+RF_PRICE_FEATURES = [
     "vpin_score",
     "time_weighted_vpin",
     "surprise_score",
     "late_move_ratio",
     "price_volatility",
+]
+
+RF_WALLET_FEATURES = [
     "burst_score",
     "directional_consensus",
     "trade_vpin",
 ]
+
+RF_FEATURES = RF_PRICE_FEATURES + RF_WALLET_FEATURES
 
 # Markets whose question contains any of these keywords are treated as
 # known insider trading positives for training.
@@ -87,11 +97,20 @@ def train_classifier(
     features: list[str] | None = None,
     pos_keywords: list[str] | None = None,
     n_neg: int = 30,
-) -> tuple[pd.DataFrame, object, object]:
+) -> tuple[pd.DataFrame, object, object, list[str]]:
     """
-    Train Random Forest on df_combined. Returns (df_with_probs, model, scaler).
+    Train Random Forest on df_combined.
+    Returns (df_with_probs, model, scaler, active_features).
 
-    To tune: adjust features or pos_keywords here (or pass them in from run.py).
+    Key design decisions:
+    - Wallet feature NaNs are imputed with column medians (not 0) before training.
+      This means 'no wallet data' is treated as 'average market', not 'clean market'.
+    - Features with zero variance in the training set are dropped automatically,
+      since they cannot contribute signal and cause the RF to output a constant.
+    - All markets are scored (not just those with wallet data).
+
+    To tune: adjust RF_FEATURES / RF_PRICE_FEATURES / RF_WALLET_FEATURES or
+    POSITIVE_KEYWORDS above, or pass them in from run.py.
     """
     if features is None:
         features = RF_FEATURES
@@ -100,14 +119,30 @@ def train_classifier(
 
     df = df_combined.copy()
 
-    # Label positives
+    # ── Step 1: Impute wallet feature NaNs with column median ─────────────
+    imputed_cols = []
+    for col in RF_WALLET_FEATURES:
+        if col in df.columns and df[col].isna().any():
+            median_val = df[col].median()
+            fill_val   = median_val if pd.notna(median_val) else 0.0
+            df[col]    = df[col].fillna(fill_val)
+            imputed_cols.append(f"{col}→{fill_val:.3f}")
+    if imputed_cols:
+        print(f"  Imputed NaNs:      {', '.join(imputed_cols)}")
+    else:
+        print("  Imputed NaNs:      none (all wallet features present)")
+
+    # ── Step 2: Label positives ───────────────────────────────────────────
     df["is_positive"] = df["question"].apply(
         lambda q: any(kw.lower() in str(q).lower() for kw in pos_keywords)
     )
     n_pos = df["is_positive"].sum()
     print(f"  Positives matched: {n_pos}")
+    if n_pos > 0:
+        for q in df[df["is_positive"]]["question"].tolist():
+            print(f"    + {q[:80]}")
 
-    # Label negatives (bottom of combined_score = implicitly clean)
+    # ── Step 3: Label negatives ───────────────────────────────────────────
     n_neg = min(n_neg, len(df) - n_pos)
     neg_idx = (
         df[~df["is_positive"]]
@@ -117,31 +152,57 @@ def train_classifier(
     )
     df["is_negative"] = False
     df.loc[neg_idx, "is_negative"] = True
-    print(f"  Negatives used:    {len(neg_idx)} (bottom by combined_score)")
+    print(f"  Negatives used:    {len(neg_idx)} (bottom {n_neg} by combined_score)")
 
-    # Build training set
+    # ── Step 4: Build training set ────────────────────────────────────────
     df_train = df[df["is_positive"] | df["is_negative"]].dropna(subset=features).copy()
     X_train  = df_train[features].values
     y_train  = df_train["is_positive"].astype(int).values
     print(f"  Training set:      {y_train.sum()} pos | {(y_train == 0).sum()} neg | {len(df_train)} total")
 
     if y_train.sum() == 0:
-        print("  No positives found — check POSITIVE_KEYWORDS vs df_combined['question']")
+        print("  No positives in training set.")
+        print("  Possible causes:")
+        print("    1. POSITIVE_KEYWORDS don't match any question in df_combined")
+        print("    2. df_combined is stale — re-run scoring then retry")
         df["insider_trading_prob"] = np.nan
-        return df, None, None
+        return df, None, None, features
 
-    # Train
+    # ── Step 5: Drop zero-variance features ──────────────────────────────
+    print(f"\n  {'Feature':<25} {'Std':>7}  {'Min':>7}  {'Max':>7}")
+    print("  " + "─" * 50)
+    active_features = []
+    for feat in features:
+        col_vals = df_train[feat]
+        std = col_vals.std()
+        mn, mx = col_vals.min(), col_vals.max()
+        if std < 1e-6:
+            print(f"  {feat:<25} {std:>7.4f}  {mn:>7.4f}  {mx:>7.4f}  ZERO VARIANCE — dropping")
+        else:
+            print(f"  {feat:<25} {std:>7.4f}  {mn:>7.4f}  {mx:>7.4f}")
+            active_features.append(feat)
+
+    if not active_features:
+        print("  All features have zero variance — cannot train.")
+        df["insider_trading_prob"] = np.nan
+        return df, None, None, features
+
+    if len(active_features) < len(features):
+        dropped = set(features) - set(active_features)
+        print(f"\n  Dropped {len(dropped)} zero-variance feature(s): {dropped}")
+
+    # ── Step 6: Train ─────────────────────────────────────────────────────
     scaler   = StandardScaler()
-    X_scaled = scaler.fit_transform(X_train)
+    X_scaled = scaler.fit_transform(df_train[active_features].values)
     rf = RandomForestClassifier(
         n_estimators=200, class_weight="balanced",
         max_depth=4, min_samples_leaf=2, random_state=42,
     )
     rf.fit(X_scaled, y_train)
 
-    # Score all markets with complete features
-    df_scoreable = df.dropna(subset=features).copy()
-    X_all = scaler.transform(df_scoreable[features].values)
+    # ── Step 7: Score all markets ─────────────────────────────────────────
+    df_scoreable = df.dropna(subset=active_features).copy()
+    X_all = scaler.transform(df_scoreable[active_features].values)
     df_scoreable["insider_trading_prob"] = rf.predict_proba(X_all)[:, 1]
 
     if "insider_trading_prob" in df.columns:
@@ -150,7 +211,7 @@ def train_classifier(
 
     # Print feature importances
     print("\nFeature importances:")
-    for feat, imp in sorted(zip(features, rf.feature_importances_), key=lambda x: -x[1]):
+    for feat, imp in sorted(zip(active_features, rf.feature_importances_), key=lambda x: -x[1]):
         bar = "█" * int(imp * 40)
         print(f"  {feat:<25} {bar} {imp:.3f}")
 
@@ -168,4 +229,4 @@ def train_classifier(
     n_scored = df["insider_trading_prob"].notna().sum()
     print(f"\nScored {n_scored}/{len(df)} markets")
 
-    return df, rf, scaler
+    return df, rf, scaler, active_features
