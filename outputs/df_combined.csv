@@ -1,16 +1,51 @@
 question,price_score,wallet_score,combined_score
-Will GTA 6 cost $100+?,0.10883788642427106,0.6,0.3544189432121355
-Will Trump meet with Elon Musk by March 31?,0.08505428467628662,0.6,0.3425271423381433
-"Will there be at least 600 measles cases in the U.S. by January 31, 2026?",0.07138012924405279,0.6,0.3356900646220264
-Will MrBeast's next video get between 49 and 52 million views on day 3?,0.05769036527869653,0.6,0.32884518263934825
-Will there be 8-10 inches of snow in NYC this weekend?,0.13551724487013406,0.5,0.31775862243506703
-Will ARKO Petroleum Corp.'s market cap be between $800M and $850M at market close on IPO day?,0.11319821642366135,0.5,0.3065991082118307
-Will MrBeast's next video get between 55 and 57 million views on day 3?,0.10798430278376325,0.5,0.3039921513918816
-Will Trump and Machado share the Nobel Peace Prize?,0.08787549586768428,0.5,0.29393774793384214
-Supreme Court rules in favor of Trump's tariffs?,0.08654730669472377,0.5,0.2932736533473619
-Will Luigi Mangione smile during next court appearance?,0.055185174942385395,0.5,0.2775925874711927
-"Will Elon Musk post 90-114 tweets from March 7 to March 9, 2026?",0.064327784900169,0.4,0.2321638924500845
-"Will Elon Musk post 65-89 tweets from February 26 to February 28, 2026?",0.14353396058680634,0.3,0.22176698029340317
-Will Google have the best AI model at the end of February 2026?,0.07592084328390925,0.3,0.18796042164195462
-"Will Elon Musk post 65-89 tweets from February 28 to March 2, 2026?",0.061386927302133465,0.3,0.18069346365106673
-Kamala positive favorability by Sunday?,0.07349799810603186,,0.07349799810603186
+"US x Iran meeting by February 6, 2026?",0.028048879517398317,0.6,0.31402443975869915
+Will Trump release more Epstein files by December 22?,0.02008746309971554,0.6,0.31004373154985776
+"Will Melania say ""Career"" during AI talk on Friday?",0.0033519208186318927,0.6,0.30167596040931594
+Khamenei out as Supreme Leader of Iran by February 28?,-0.00973050772772377,0.6,0.2951347461361381
+US government shutdown Saturday?,-0.019308649286425394,0.6,0.2903456753567873
+"US strikes Iran by February 27, 2026?",-0.053190973389887375,0.6,0.27340451330505633
+"US strikes Iran by February 20, 2026?",-0.09058731435315592,0.6,0.254706342823422
+Russia x Ukraine ceasefire in 2025?,-0.11337540237487692,0.6,0.24331229881256153
+"Russia x Ukraine ceasefire by January 31, 2026?",-0.11836856252518885,0.6,0.24081571873740557
+Jerome Powell out as Fed Chair in 2025?,-0.1202169834590947,0.6,0.23989150827045264
+No change in Fed interest rates after January 2026 meeting?,-0.12378243452428905,0.6,0.23810878273785546
+"Maduro out by January 31, 2026?",0.07433376780553347,0.4,0.23716688390276675
+Will Trump nominate Kevin Warsh as the next Fed chair?,-0.1404694895113261,0.6,0.22976525524433694
+"US strikes Iran by January 14, 2026?",0.029944248414547903,0.4,0.21497212420727396
+Will Trump nominate Christopher Waller as the next Fed chair?,-0.10978868302148037,0.5,0.19510565848925981
+Fed decreases interest rates by 25 bps after January 2026 meeting?,-0.11953657158229775,0.5,0.19023171420885113
+Government shutdown on Saturday?,-0.023126117715784433,0.4,0.1884369411421078
+"US strikes Iran by January 23, 2026?",-0.12463441624407273,0.5,0.18768279187796363
+Will Trump nominate Kevin Hassett as the next Fed chair?,-0.14562666440333455,0.4,0.12718666779833274
+"US strikes Iran by March 31, 2026?",-0.06400595576746909,0.3,0.11799702211626545
+"US strikes Iran by February 28, 2026?",-0.08649069308588897,0.3,0.10675465345705551
+Will George Simion win the Romanian presidential election?,0.051760370808025535,,0.051760370808025535
+Will South Korea presidential election winner get over 50% of votes?,0.045831828082269155,,0.045831828082269155
+Will Donald Trump be inaugurated?,0.02768613182826407,,0.02768613182826407
+Will the government shutdown end November 12?,-0.0033519208186318927,,-0.0033519208186318927
+US military action against Iran before July?,-0.00596415116794502,,-0.00596415116794502
+Houthi strike on Israel by August 31?,-0.011624021613767965,,-0.011624021613767965
+Will Nicușor Dan win the Romanian presidential election?,-0.023936421406468567,,-0.023936421406468567
+Will Karol Nawrocki be the next President of Poland?,-0.039459562500602896,,-0.039459562500602896
+Will Lee Jae-myung be elected the next president of South Korea?,-0.05257910804055965,,-0.05257910804055965
+Will Rafał Trzaskowski be the next President of Poland?,-0.05351352592775077,,-0.05351352592775077
+US government shutdown by October 1?,-0.06892665970263934,,-0.06892665970263934
+TikTok banned in the US before May 2025?,-0.07721520936570858,,-0.07721520936570858
+Will Elise Stefanik be the first elected Speaker of the House for the 119th congress?,-0.07874341828661119,,-0.07874341828661119
+Democrats win popular vote by 1-2%?,-0.08363234629277694,,-0.08363234629277694
+No change in Fed interest rates after December 2025 meeting?,-0.08814262067204215,,-0.08814262067204215
+Lord Miles completes 40-day water fast in the desert?,-0.08934608950556827,,-0.08934608950556827
+Will Andrew Cuomo win the 2025 NYC mayoral election?,-0.09094461006481536,,-0.09094461006481536
+Major cyberattack on Iran in June?,-0.10252861849700778,,-0.10252861849700778
+No change in Fed interest rates after January 2025 meeting?,-0.11369494203137331,,-0.11369494203137331
+Will Andrew Cuomo win the Democratic Primary for Mayor of New York City?,-0.11662665580402487,,-0.11662665580402487
+Yoon out as president of South Korea before April?,-0.11762457592479059,,-0.11762457592479059
+Will Jaime Battiste be the next leader of the Canadian Liberal Party?,-0.11970293000397464,,-0.11970293000397464
+Yoon out as president of South Korea before May?,-0.12118406942274929,,-0.12118406942274929
+Will Polymarket US go live in 2025?,-0.12252707297955312,,-0.12252707297955312
+Will Marek Jakubiak be the next President of Poland?,-0.12822578620111996,,-0.12822578620111996
+Will Austin Scott be the first elected Speaker of the House for the 119th congress?,-0.13361644304650377,,-0.13361644304650377
+Trump declassifies UFO files in 2025?,-0.13537422066336685,,-0.13537422066336685
+Trump ends Ukraine war in first 90 days?,-0.1415275291201178,,-0.1415275291201178
+Will Kim Moon-soo be elected the next president of South Korea?,-0.14782327095162123,,-0.14782327095162123
