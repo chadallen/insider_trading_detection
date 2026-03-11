@@ -76,8 +76,17 @@ function DetailSection({ title, children }) {
   )
 }
 
+function timeUntil(isoStr) {
+  if (!isoStr) return null
+  const ms = new Date(isoStr) - Date.now()
+  if (isNaN(ms) || ms < 0) return null
+  const h = Math.floor(ms / 3_600_000)
+  const m = Math.floor((ms % 3_600_000) / 60_000)
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
+}
+
 // ── main component ───────────────────────────────────────────────────────────
-export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowClick, selected }) {
+export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowClick, selected, showProb = false }) {
   return (
     <div className="divide-y divide-gray-800/40">
       {/* Column headers — hidden on small screens */}
@@ -96,6 +105,7 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
         const isOpen = selected?.question === row.question
         const s = scored[row.question]
         const w = wallet[row.question]
+        const until = timeUntil(row.end_date)
 
         return (
           <div key={i} className={`${BORDER[lvl]} transition-colors duration-100`}>
@@ -140,8 +150,13 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                     <span className={`text-xs px-2 py-0.5 rounded-full font-semibold tracking-wide ${BADGE[lvl]}`}>
                       {lvl.toUpperCase()}
                     </span>
+                    {showProb && until && (
+                      <span className="text-emerald-400 text-xs tabular-nums">{until}</span>
+                    )}
                     <span className={`tabular-nums font-semibold text-sm ${SCORE_COLOR[lvl]}`}>
-                      {row.combined_score.toFixed(4)}
+                      {showProb
+                        ? (row.insider_trading_prob != null ? row.insider_trading_prob.toFixed(3) : '—')
+                        : row.combined_score.toFixed(4)}
                     </span>
                   </div>
                 </div>
@@ -160,7 +175,7 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-gray-500">Wallet Score</span>
-                    <ScoreBar value={row.wallet_score} colorClass={row.wallet_score >= 0.6 ? 'bg-purple-400' : 'bg-indigo-500'} />
+                    <ScoreBar value={row.wallet_score ?? 0} colorClass={(row.wallet_score ?? 0) >= 0.6 ? 'bg-purple-400' : 'bg-indigo-500'} />
                   </div>
                 </div>
 

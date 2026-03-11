@@ -8,6 +8,7 @@ Run modes:
   python run.py --skip-dune        Price pipeline only — no Dune credits spent
   python run.py --classifier-only  Retrain RF on saved df_combined (fastest, 0 credits)
   python run.py --push             Push output CSVs to GitHub after running
+  python run.py --live             POC: score open markets ending within --hours-ahead hours
 
 Example iteration loop (model tuning):
   1. Edit scorer.py (RF_FEATURES, POSITIVE_KEYWORDS, hyperparams)
@@ -36,6 +37,9 @@ def parse_args():
     p.add_argument("--top-n",            type=int, default=None, help="Override TOP_N_MARKETS for wallet query")
     p.add_argument("--contamination",    type=float, default=0.1, help="Isolation Forest contamination (default: 0.1)")
     p.add_argument("--n-neg",            type=int, default=30, help="Number of implicit negatives for RF (default: 30)")
+    p.add_argument("--live",             action="store_true", help="POC: score open markets resolving within --hours-ahead hours")
+    p.add_argument("--hours-ahead",      type=int, default=48, help="Hours ahead to look for live markets (default: 48)")
+    p.add_argument("--live-min-volume",  type=float, default=1_000_000, help="Min volume for live markets (default: 1000000)")
     return p.parse_args()
 
 
@@ -72,7 +76,7 @@ def main():
     args = parse_args()
 
     import backend.checkpoints as cp
-    from backend.pipeline.fetcher import fetch_markets, fetch_price_histories
+    from backend.pipeline.fetcher import fetch_markets, fetch_price_histories, fetch_live_markets
     from backend.pipeline.price_features import (
         build_price_features, enrich_with_dune_vpin, score_with_isolation_forest
     )
@@ -101,6 +105,13 @@ def main():
         _write_outputs(df_combined, state.get("df_scored"), state.get("df_wallet_agg"))
         if args.push:
             push_to_github(df_combined, state.get("df_scored"), state.get("df_wallet_agg"))
+        return
+
+    # ── Live mode: score open markets resolving soon (POC) ───────────────
+    if args.live:
+        _run_live(args, cp, build_price_features, score_with_isolation_forest,
+                  fetch_top_n_wallet_data, build_combined, train_classifier,
+                  fetch_live_markets, top_n)
         return
 
     # ── Load or fetch markets / histories ────────────────────────────────
@@ -159,6 +170,116 @@ def main():
         push_to_github(df_combined, df_scored, df_wallet_agg)
 
     print("\nDone.")
+
+
+def _run_live(args, cp, build_price_features, score_with_isolation_forest,
+              fetch_top_n_wallet_data, build_combined, train_classifier,
+              fetch_live_markets, top_n):
+    """
+    POC live mode: fetch open markets ending within --hours-ahead, score them,
+    then apply the RF trained on historical labeled cases.
+
+    NOTE: the classifier is trained on historical positives (POSITIVE_KEYWORDS)
+    and implicit negatives, so predictions on live markets are indicative only.
+    """
+    from backend.pipeline.fetcher import fetch_price_histories
+    from datetime import datetime, timezone
+
+    print(f"=== LIVE MODE (POC) — markets ending within {args.hours_ahead}h ===\n")
+
+    # 1. Fetch open markets ending soon
+    df_markets = fetch_live_markets(
+        hours_ahead=args.hours_ahead,
+        min_volume=args.live_min_volume,
+    )
+    if df_markets.empty:
+        print("No live markets found — try increasing --hours-ahead or lowering --live-min-volume.")
+        return
+
+    print(f"\n=== Fetching price histories ({len(df_markets)} markets) ===")
+    histories = fetch_price_histories(df_markets)
+
+    if not histories:
+        print("No price histories returned — cannot score.")
+        return
+
+    # 2. Price features + isolation forest
+    print("\n=== Computing price features ===")
+    df_scored = build_price_features(df_markets, histories)
+
+    print("\n=== Isolation Forest scoring ===")
+    # Higher contamination = flags more markets; useful when we have few data points
+    contamination = max(args.contamination, min(0.3, 2 / max(len(df_scored), 1)))
+    df_scored = score_with_isolation_forest(df_scored, contamination=contamination)
+
+    # 3. Wallet features from Dune (uses now as cutoff since resolution_time = now)
+    df_wallet_agg = None
+    if not args.skip_dune:
+        live_top_n = min(top_n, len(df_scored))
+        print(f"\n=== Wallet query for top {live_top_n} live markets (~4 credits) ===")
+        df_wallet_agg = fetch_top_n_wallet_data(df_scored, df_markets, top_n=live_top_n)
+
+    # 4. Combine + classify
+    print("\n=== Combining scores ===")
+    df_combined = build_combined(df_scored, df_wallet_agg)
+
+    # Load historical df_combined to use its positives/negatives for RF training
+    state = cp.load_all()
+    df_hist = state.get("df_combined")
+    if df_hist is not None and not df_hist.empty:
+        print(f"\nAppending {len(df_hist)} historical markets for RF training context...")
+        df_for_training = pd.concat([df_hist, df_combined], ignore_index=True)
+        df_for_training = df_for_training.drop_duplicates(subset=["question"], keep="last")
+    else:
+        print("\nNo historical data found — RF trained only on live markets (very limited).")
+        df_for_training = df_combined
+
+    _preflight(df_for_training)
+    print("\n=== Training RF classifier ===")
+    df_for_training, _, _, _ = train_classifier(df_for_training, n_neg=args.n_neg)
+
+    # Extract scores for only the live markets
+    live_questions = set(df_combined["question"])
+    df_live_results = df_for_training[df_for_training["question"].isin(live_questions)].copy()
+
+    # Merge end_date so the dashboard can show time-to-resolution
+    end_dates = df_markets[["question", "end_date"]].drop_duplicates("question")
+    df_live_results = df_live_results.merge(end_dates, on="question", how="left")
+
+    # Write outputs to both outputs/ and dashboard/public/ (for Vercel)
+    root = os.path.dirname(__file__)
+    for dest in [os.path.join(root, "outputs"), os.path.join(root, "dashboard", "public")]:
+        os.makedirs(dest, exist_ok=True)
+        df_live_results.to_csv(os.path.join(dest, "df_live.csv"), index=False)
+        df_scored.to_csv(os.path.join(dest, "df_live_scored.csv"), index=False)
+
+    print(f"\nOutputs written to outputs/ and dashboard/public/")
+
+    # Print summary
+    cols = ["question", "insider_trading_prob", "combined_score", "price_score"]
+    if "wallet_score" in df_live_results.columns:
+        cols.append("wallet_score")
+    available = [c for c in cols if c in df_live_results.columns]
+
+    print(f"\n{'='*70}")
+    print(f"LIVE MARKET INSIDER TRADING RISK — top results (POC, not validated)")
+    print(f"{'='*70}")
+    top = df_live_results.dropna(subset=["insider_trading_prob"]).nlargest(15, "insider_trading_prob")
+    if top.empty:
+        print("No scored markets — check price history coverage.")
+    else:
+        for _, row in top.iterrows():
+            prob = row.get("insider_trading_prob", float("nan"))
+            price = row.get("price_score", float("nan"))
+            wallet = row.get("wallet_score", float("nan"))
+            q = row["question"][:70]
+            wallet_str = f"  wallet={wallet:.2f}" if pd.notna(wallet) else ""
+            print(f"  {prob:.3f}  price={price:.2f}{wallet_str}  {q}")
+    print(f"{'='*70}\n")
+
+    if args.push:
+        from backend.pipeline.scorer import RF_FEATURES
+        push_to_github(df_live_results, df_scored, df_wallet_agg)
 
 
 def _preflight(df_combined):
