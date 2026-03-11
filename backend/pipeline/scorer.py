@@ -47,6 +47,8 @@ POSITIVE_KEYWORDS = [
 def build_combined(df_scored: pd.DataFrame, df_wallet_agg: pd.DataFrame | None) -> pd.DataFrame:
     """
     Merge price features + wallet features, normalize scores, compute combined_score.
+    combined_score = geometric mean of price_score and wallet_score (when both available),
+    requiring both signals to be elevated to score highly (fewer false positives).
     """
     # Normalize suspicion_score → price_score (0–1)
     df_price = df_scored[[
@@ -81,7 +83,7 @@ def build_combined(df_scored: pd.DataFrame, df_wallet_agg: pd.DataFrame | None) 
 
     df_combined["combined_score"] = df_combined.apply(
         lambda r: (
-            (r["price_score"] + r["wallet_score"]) / 2
+            (r["price_score"] * r["wallet_score"]) ** 0.5
             if pd.notna(r.get("wallet_score"))
             else r["price_score"]
         ),
