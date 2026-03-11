@@ -250,7 +250,12 @@ def fetch_top_n_wallet_data(
         .to_dict()
     )
 
-    # VALUES clause: one row per market with its resolution timestamp
+    # VALUES clause: one row per market with its effective cutoff timestamp.
+    # For live (open) markets the end_date is in the future, so we clamp to now
+    # so the wallet query only sees trades that have actually happened.
+    from datetime import datetime, timezone as _tz
+    now_ts = datetime.now(_tz.utc).strftime("%Y-%m-%d %H:%M:%S")
+
     values_rows = []
     for q in top_markets["question"].tolist():
         end_date = end_dates.get(q, "")
@@ -258,6 +263,9 @@ def fetch_top_n_wallet_data(
             continue
         # Normalise to plain timestamp (strip trailing Z or timezone)
         ts = str(end_date).replace("Z", "").replace("+00:00", "").replace("T", " ")[:19]
+        # Clamp future dates to now so live markets don't return all-time trades
+        if ts > now_ts:
+            ts = now_ts
         values_rows.append(f"    ({sql_quote(q)}, TIMESTAMP '{ts}')")
 
     if not values_rows:
