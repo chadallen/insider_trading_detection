@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Papa from 'papaparse'
 import SuspicionTable from './components/SuspicionTable'
+import ScatterPlot from './components/ScatterPlot'
 
 function parseCsv(text) {
   return Papa.parse(text, { header: true, dynamicTyping: true, skipEmptyLines: true }).data
@@ -110,6 +111,16 @@ export default function App() {
                 borderClass="border-green-900/40 bg-green-950/15"
               />
             </div>
+
+            {/* ── Scatter plot ── */}
+            <section className="bg-gray-900/40 border border-gray-800 rounded-xl p-6">
+              <SectionTitle>Price Score vs Wallet Score</SectionTitle>
+              <p className="text-gray-500 text-xs mb-4">
+                Markets in the upper-right corner show anomalous signals in both dimensions.
+                Bubble size reflects combined score magnitude.
+              </p>
+              <ScatterPlot data={data.filter((d) => d.wallet_score != null && !isNaN(d.wallet_score))} />
+            </section>
 
             {/* ── Ranked table ── */}
             <section className="bg-gray-900/40 border border-gray-800 rounded-xl p-6">

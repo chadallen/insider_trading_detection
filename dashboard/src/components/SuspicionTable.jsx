@@ -42,6 +42,9 @@ const fmtDate = (s) => {
 
 // ── sub-components ───────────────────────────────────────────────────────────
 function ScoreBar({ value, colorClass }) {
+  if (value == null || isNaN(value)) {
+    return <span className="tabular-nums text-gray-600 text-xs w-12 text-right">—</span>
+  }
   const pct = Math.max(0, Math.min(1, value)) * 100
   return (
     <div className="flex items-center gap-2 justify-end">
@@ -78,12 +81,13 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
   return (
     <div className="divide-y divide-gray-800/40">
       {/* Column headers — hidden on small screens */}
-      <div className="hidden sm:grid sm:grid-cols-[2rem_1fr_auto_auto_auto_auto] gap-x-4 px-3 pb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">
+      <div className="hidden sm:grid sm:grid-cols-[2rem_1fr_auto_auto_auto_auto_auto] gap-x-4 px-3 pb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">
         <span>#</span>
         <span>Market Question</span>
         <span className="text-right">Price</span>
         <span className="text-right">Wallet</span>
         <span className="text-right">Combined</span>
+        <span className="text-right">RF Prob</span>
         <span className="text-center">Risk</span>
       </div>
 
@@ -102,7 +106,7 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
               aria-expanded={isOpen}
             >
               {/* Desktop layout */}
-              <div className="hidden sm:grid sm:grid-cols-[2rem_1fr_auto_auto_auto_auto] gap-x-4 items-center">
+              <div className="hidden sm:grid sm:grid-cols-[2rem_1fr_auto_auto_auto_auto_auto] gap-x-4 items-center">
                 <span className="text-gray-600 text-xs tabular-nums">{i + 1}</span>
                 <span className="text-gray-200 text-sm truncate pr-2">{row.question}</span>
                 <ScoreBar
@@ -115,6 +119,9 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                 />
                 <span className={`tabular-nums font-semibold text-sm text-right ${SCORE_COLOR[lvl]}`}>
                   {row.combined_score.toFixed(4)}
+                </span>
+                <span className="tabular-nums text-xs text-right text-gray-400">
+                  {row.insider_trading_prob != null ? row.insider_trading_prob.toFixed(3) : '—'}
                 </span>
                 <div className="flex items-center justify-between gap-2">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-semibold tracking-wide ${BADGE[lvl]}`}>
@@ -156,6 +163,17 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                     <ScoreBar value={row.wallet_score} colorClass={row.wallet_score >= 0.6 ? 'bg-purple-400' : 'bg-indigo-500'} />
                   </div>
                 </div>
+
+                {/* RF probability — full-width summary row */}
+                {row.insider_trading_prob != null && (
+                  <div className="mb-4 flex items-center justify-between border border-gray-700/50 rounded-lg px-4 py-2.5 bg-gray-800/30">
+                    <span className="text-xs text-gray-400">RF Insider-Trading Probability</span>
+                    <span className="tabular-nums font-bold text-sm text-gray-200">
+                      {(row.insider_trading_prob * 100).toFixed(1)}%
+                      <span className="text-gray-600 font-normal text-xs ml-1">(model in training)</span>
+                    </span>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
                   {s ? (

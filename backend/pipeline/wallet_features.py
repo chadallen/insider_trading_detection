@@ -323,7 +323,9 @@ vpin AS (
     FROM trades GROUP BY question
 )
 SELECT v.question, v.trade_vpin, v.total_volume, v.trade_count,
-       v.unique_wallets, b.burst_score, d.directional_consensus,
+       v.unique_wallets,
+       b.burst_score * 1.0 / NULLIF(v.trade_count, 0) AS burst_score,
+       d.directional_consensus,
        COALESCE(nw12.new_wallet_volume_12h, 0) / NULLIF(v.total_volume, 0) AS new_wallet_ratio,
        COALESCE(nw6.new_wallet_volume_6h,  0) / NULLIF(v.total_volume, 0) AS new_wallet_ratio_6h
 FROM vpin v
