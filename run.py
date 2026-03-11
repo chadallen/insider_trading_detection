@@ -242,13 +242,18 @@ def _run_live(args, cp, build_price_features, score_with_isolation_forest,
     live_questions = set(df_combined["question"])
     df_live_results = df_for_training[df_for_training["question"].isin(live_questions)].copy()
 
-    # Write outputs
-    out_dir = os.path.join(os.path.dirname(__file__), "outputs")
-    os.makedirs(out_dir, exist_ok=True)
-    df_live_results.to_csv(os.path.join(out_dir, "df_live.csv"), index=False)
-    df_scored.to_csv(os.path.join(out_dir, "df_live_scored.csv"), index=False)
+    # Merge end_date so the dashboard can show time-to-resolution
+    end_dates = df_markets[["question", "end_date"]].drop_duplicates("question")
+    df_live_results = df_live_results.merge(end_dates, on="question", how="left")
 
-    print(f"\nOutputs written to outputs/df_live.csv and outputs/df_live_scored.csv")
+    # Write outputs to both outputs/ and dashboard/public/ (for Vercel)
+    root = os.path.dirname(__file__)
+    for dest in [os.path.join(root, "outputs"), os.path.join(root, "dashboard", "public")]:
+        os.makedirs(dest, exist_ok=True)
+        df_live_results.to_csv(os.path.join(dest, "df_live.csv"), index=False)
+        df_scored.to_csv(os.path.join(dest, "df_live_scored.csv"), index=False)
+
+    print(f"\nOutputs written to outputs/ and dashboard/public/")
 
     # Print summary
     cols = ["question", "insider_trading_prob", "combined_score", "price_score"]
@@ -292,18 +297,24 @@ def _preflight(df_combined):
 
 
 def _write_outputs(df_combined, df_scored, df_wallet_agg):
-    """Write CSVs to outputs/ so the dashboard can read them locally."""
-    out_dir = os.path.join(os.path.dirname(__file__), "outputs")
+    """Write CSVs to outputs/ and dashboard/public/ (Vercel static assets)."""
+    root = os.path.dirname(__file__)
+    out_dir    = os.path.join(root, "outputs")
+    public_dir = os.path.join(root, "dashboard", "public")
     os.makedirs(out_dir, exist_ok=True)
+    os.makedirs(public_dir, exist_ok=True)
 
-    if df_combined is not None:
-        df_combined.to_csv(os.path.join(out_dir, "df_combined.csv"), index=False)
-    if df_scored is not None:
-        df_scored.to_csv(os.path.join(out_dir, "df_scored.csv"), index=False)
-    if df_wallet_agg is not None:
-        df_wallet_agg.to_csv(os.path.join(out_dir, "df_wallet_agg.csv"), index=False)
+    def _write(df, filename):
+        if df is None:
+            return
+        df.to_csv(os.path.join(out_dir, filename), index=False)
+        df.to_csv(os.path.join(public_dir, filename), index=False)
 
-    print(f"\nOutputs written to outputs/")
+    _write(df_combined,   "df_combined.csv")
+    _write(df_scored,     "df_scored.csv")
+    _write(df_wallet_agg, "df_wallet_agg.csv")
+
+    print(f"\nOutputs written to outputs/ and dashboard/public/")
 
 
 if __name__ == "__main__":

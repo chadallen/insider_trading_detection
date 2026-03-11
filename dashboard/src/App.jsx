@@ -6,14 +6,35 @@ function parseCsv(text) {
   return Papa.parse(text, { header: true, dynamicTyping: true, skipEmptyLines: true }).data
 }
 
+async function tryFetch(url) {
+  try {
+    const r = await fetch(url)
+    if (!r.ok) return null
+    return r.text()
+  } catch {
+    return null
+  }
+}
+
 export default function App() {
+  const [tab, setTab] = useState('historical')
+
+  // Historical data
   const [data, setData]       = useState([])
-  const [scored, setScored]   = useState({})   // keyed by question
-  const [wallet, setWallet]   = useState({})   // keyed by question
+  const [scored, setScored]   = useState({})
+  const [wallet, setWallet]   = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
   const [selected, setSelected] = useState(null)
 
+  // Live data
+  const [liveData, setLiveData]       = useState(null)  // null = not loaded yet
+  const [liveScored, setLiveScored]   = useState({})
+  const [liveLoading, setLiveLoading] = useState(false)
+  const [liveError, setLiveError]     = useState(null)
+  const [liveSelected, setLiveSelected] = useState(null)
+
+  // Load historical on mount
   useEffect(() => {
     Promise.all([
       fetch('/df_combined.csv').then((r) => r.text()),
@@ -39,6 +60,36 @@ export default function App() {
         setLoading(false)
       })
   }, [])
+
+  // Load live data when tab switches to 'live'
+  useEffect(() => {
+    if (tab !== 'live' || liveData !== null) return
+    setLiveLoading(true)
+    Promise.all([
+      tryFetch('/df_live.csv'),
+      tryFetch('/df_live_scored.csv'),
+    ]).then(([liveCsv, liveScoredCsv]) => {
+      if (!liveCsv) {
+        setLiveData([])
+        setLiveLoading(false)
+        return
+      }
+      const sorted = [...parseCsv(liveCsv)].sort(
+        (a, b) => (b.insider_trading_prob ?? b.combined_score) - (a.insider_trading_prob ?? a.combined_score)
+      )
+      setLiveData(sorted)
+
+      if (liveScoredCsv) {
+        const m = {}
+        parseCsv(liveScoredCsv).forEach((row) => { m[row.question] = row })
+        setLiveScored(m)
+      }
+      setLiveLoading(false)
+    }).catch((e) => {
+      setLiveError(e.message)
+      setLiveLoading(false)
+    })
+  }, [tab, liveData])
 
   const high   = data.filter((d) => d.combined_score >= 0.35).length
   const medium = data.filter((d) => d.combined_score >= 0.25 && d.combined_score < 0.35).length
@@ -66,69 +117,116 @@ export default function App() {
             <span className="text-gray-300">price volatility</span>, and{' '}
             <span className="text-gray-300">anomaly detection</span> to flag markets where
             insiders may have traded ahead of outcomes.
-            High suspicion scores (&gt;0.08) warrant further investigation.
           </p>
+
+          {/* ── Tabs ── */}
+          <div className="ml-7 mt-3 flex gap-1">
+            <TabButton active={tab === 'historical'} onClick={() => { setTab('historical'); setSelected(null) }}>
+              Historical
+            </TabButton>
+            <TabButton active={tab === 'live'} onClick={() => { setTab('live'); setLiveSelected(null) }}>
+              Live Markets
+              <span className="ml-1.5 text-[9px] font-bold bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full ring-1 ring-green-500/30 uppercase">
+                ending soon
+              </span>
+            </TabButton>
+          </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        {loading && (
-          <div className="flex items-center justify-center h-64 text-gray-500 text-sm">
-            <span className="animate-pulse">Loading market data…</span>
-          </div>
-        )}
 
-        {error && (
-          <div className="flex items-center justify-center h-64 text-red-400 text-sm">
-            Failed to load CSV: {error}
-          </div>
-        )}
-
-        {!loading && !error && (
+        {/* ── Historical tab ── */}
+        {tab === 'historical' && (
           <>
-            {/* ── Stats bar ── */}
-            <div className="grid grid-cols-3 gap-4">
-              <StatCard
-                count={high}
-                label="High Suspicion"
-                sub="≥ 0.35 combined score"
-                colorClass="text-red-400"
-                borderClass="border-red-900/50 bg-red-950/25"
-              />
-              <StatCard
-                count={medium}
-                label="Medium Suspicion"
-                sub="0.25 – 0.35 combined score"
-                colorClass="text-yellow-400"
-                borderClass="border-yellow-900/50 bg-yellow-950/15"
-              />
-              <StatCard
-                count={low}
-                label="Low / Clean"
-                sub="< 0.25 combined score"
-                colorClass="text-green-400"
-                borderClass="border-green-900/40 bg-green-950/15"
-              />
-            </div>
-
-            {/* ── Ranked table ── */}
-            <section className="bg-gray-900/40 border border-gray-800 rounded-xl p-6">
-              <SectionTitle>Markets Ranked by Combined Score</SectionTitle>
-              <p className="text-gray-500 text-xs mb-4">
-                Sorted highest → lowest. Click any row to see full signal detail.
-              </p>
-              <SuspicionTable data={data} scored={scored} wallet={wallet} onRowClick={setSelected} selected={selected} />
-            </section>
-
-            {/* ── Footer ── */}
-            <footer className="text-center text-gray-700 text-xs pb-6">
-              POC · for research purposes only · data sourced from Polymarket public API
-            </footer>
+            {loading && <LoadingState />}
+            {error && <ErrorState msg={error} />}
+            {!loading && !error && (
+              <>
+                <div className="grid grid-cols-3 gap-4">
+                  <StatCard count={high}   label="High Suspicion"  sub="≥ 0.35 combined score" colorClass="text-red-400"    borderClass="border-red-900/50 bg-red-950/25" />
+                  <StatCard count={medium} label="Medium Suspicion" sub="0.25 – 0.35 combined score" colorClass="text-yellow-400" borderClass="border-yellow-900/50 bg-yellow-950/15" />
+                  <StatCard count={low}    label="Low / Clean"      sub="< 0.25 combined score" colorClass="text-green-400"  borderClass="border-green-900/40 bg-green-950/15" />
+                </div>
+                <section className="bg-gray-900/40 border border-gray-800 rounded-xl p-6">
+                  <SectionTitle>Resolved Markets — Ranked by Combined Score</SectionTitle>
+                  <p className="text-gray-500 text-xs mb-4">
+                    Sorted highest → lowest. Click any row to see full signal detail.
+                  </p>
+                  <SuspicionTable data={data} scored={scored} wallet={wallet} onRowClick={setSelected} selected={selected} />
+                </section>
+                <Footer />
+              </>
+            )}
           </>
         )}
-      </main>
 
+        {/* ── Live tab ── */}
+        {tab === 'live' && (
+          <>
+            {liveLoading && <LoadingState />}
+            {liveError && <ErrorState msg={liveError} />}
+            {!liveLoading && !liveError && liveData === null && <LoadingState />}
+            {!liveLoading && !liveError && liveData !== null && liveData.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-64 gap-3 text-center">
+                <p className="text-gray-400 text-sm">No live market data yet.</p>
+                <p className="text-gray-600 text-xs max-w-md">
+                  Run the pipeline to generate predictions:
+                </p>
+                <code className="text-gray-400 text-xs bg-gray-900 border border-gray-700 rounded px-3 py-1.5">
+                  python run.py --live --skip-dune
+                </code>
+                <p className="text-gray-600 text-xs">then commit <span className="text-gray-500">dashboard/public/df_live.csv</span> and push to redeploy.</p>
+              </div>
+            )}
+            {!liveLoading && !liveError && liveData !== null && liveData.length > 0 && (
+              <>
+                <div className="flex items-start gap-3 bg-amber-950/20 border border-amber-800/40 rounded-xl px-5 py-4">
+                  <span className="text-amber-400 text-base mt-0.5 shrink-0">⚠</span>
+                  <p className="text-amber-300/80 text-xs leading-relaxed">
+                    <span className="font-semibold text-amber-300">POC predictions only.</span>{' '}
+                    These markets are still open. Scores are generated by a Random Forest trained on a small set of historical labeled cases.
+                    They are indicative only and should not be taken as definitive signals.
+                  </p>
+                </div>
+
+                <section className="bg-gray-900/40 border border-gray-800 rounded-xl p-6">
+                  <SectionTitle>Open Markets Ending Soon — Ranked by RF Probability</SectionTitle>
+                  <p className="text-gray-500 text-xs mb-4">
+                    Sorted by insider trading probability (RF classifier). Click any row for detail.
+                  </p>
+                  <SuspicionTable
+                    data={liveData}
+                    scored={liveScored}
+                    wallet={{}}
+                    onRowClick={setLiveSelected}
+                    selected={liveSelected}
+                    showProb
+                  />
+                </section>
+                <Footer />
+              </>
+            )}
+          </>
+        )}
+
+      </main>
     </div>
+  )
+}
+
+function TabButton({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+        active
+          ? 'bg-gray-800 text-gray-100'
+          : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
+      }`}
+    >
+      {children}
+    </button>
   )
 }
 
@@ -147,5 +245,29 @@ function SectionTitle({ children }) {
     <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
       {children}
     </h2>
+  )
+}
+
+function LoadingState() {
+  return (
+    <div className="flex items-center justify-center h-64 text-gray-500 text-sm">
+      <span className="animate-pulse">Loading market data…</span>
+    </div>
+  )
+}
+
+function ErrorState({ msg }) {
+  return (
+    <div className="flex items-center justify-center h-64 text-red-400 text-sm">
+      Failed to load CSV: {msg}
+    </div>
+  )
+}
+
+function Footer() {
+  return (
+    <footer className="text-center text-gray-700 text-xs pb-6">
+      POC · for research purposes only · data sourced from Polymarket public API
+    </footer>
   )
 }

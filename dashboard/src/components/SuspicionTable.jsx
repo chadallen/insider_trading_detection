@@ -73,17 +73,26 @@ function DetailSection({ title, children }) {
   )
 }
 
+function timeUntil(isoStr) {
+  if (!isoStr) return null
+  const ms = new Date(isoStr) - Date.now()
+  if (isNaN(ms) || ms < 0) return null
+  const h = Math.floor(ms / 3_600_000)
+  const m = Math.floor((ms % 3_600_000) / 60_000)
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
+}
+
 // ── main component ───────────────────────────────────────────────────────────
-export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowClick, selected }) {
+export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowClick, selected, showProb = false }) {
   return (
     <div className="divide-y divide-gray-800/40">
       {/* Column headers — hidden on small screens */}
-      <div className="hidden sm:grid sm:grid-cols-[2rem_1fr_auto_auto_auto_auto] gap-x-4 px-3 pb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">
+      <div className={`hidden sm:grid gap-x-4 px-3 pb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-widest ${showProb ? 'sm:grid-cols-[2rem_1fr_auto_auto_auto_auto]' : 'sm:grid-cols-[2rem_1fr_auto_auto_auto_auto]'}`}>
         <span>#</span>
         <span>Market Question</span>
-        <span className="text-right">Price</span>
-        <span className="text-right">Wallet</span>
-        <span className="text-right">Combined</span>
+        <span className="text-right">{showProb ? 'Ends in' : 'Price'}</span>
+        <span className="text-right">{showProb ? 'Price' : 'Wallet'}</span>
+        <span className="text-right">{showProb ? 'RF Prob' : 'Combined'}</span>
         <span className="text-center">Risk</span>
       </div>
 
@@ -92,6 +101,7 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
         const isOpen = selected?.question === row.question
         const s = scored[row.question]
         const w = wallet[row.question]
+        const until = timeUntil(row.end_date)
 
         return (
           <div key={i} className={`${BORDER[lvl]} transition-colors duration-100`}>
@@ -105,17 +115,31 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
               <div className="hidden sm:grid sm:grid-cols-[2rem_1fr_auto_auto_auto_auto] gap-x-4 items-center">
                 <span className="text-gray-600 text-xs tabular-nums">{i + 1}</span>
                 <span className="text-gray-200 text-sm truncate pr-2">{row.question}</span>
-                <ScoreBar
-                  value={row.price_score}
-                  colorClass={row.price_score > 0.08 ? 'bg-orange-400' : 'bg-blue-500'}
-                />
-                <ScoreBar
-                  value={row.wallet_score}
-                  colorClass={row.wallet_score >= 0.6 ? 'bg-purple-400' : 'bg-indigo-500'}
-                />
-                <span className={`tabular-nums font-semibold text-sm text-right ${SCORE_COLOR[lvl]}`}>
-                  {row.combined_score.toFixed(4)}
-                </span>
+
+                {showProb ? (
+                  <span className="text-gray-500 text-xs text-right tabular-nums">
+                    {until ? <span className="text-emerald-400">{until}</span> : '—'}
+                  </span>
+                ) : (
+                  <ScoreBar value={row.price_score} colorClass={row.price_score > 0.08 ? 'bg-orange-400' : 'bg-blue-500'} />
+                )}
+
+                {showProb ? (
+                  <ScoreBar value={row.price_score} colorClass={row.price_score > 0.08 ? 'bg-orange-400' : 'bg-blue-500'} />
+                ) : (
+                  <ScoreBar value={row.wallet_score ?? 0} colorClass={(row.wallet_score ?? 0) >= 0.6 ? 'bg-purple-400' : 'bg-indigo-500'} />
+                )}
+
+                {showProb ? (
+                  <span className={`tabular-nums font-semibold text-sm text-right ${SCORE_COLOR[lvl]}`}>
+                    {row.insider_trading_prob != null ? row.insider_trading_prob.toFixed(3) : '—'}
+                  </span>
+                ) : (
+                  <span className={`tabular-nums font-semibold text-sm text-right ${SCORE_COLOR[lvl]}`}>
+                    {row.combined_score.toFixed(4)}
+                  </span>
+                )}
+
                 <div className="flex items-center justify-between gap-2">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-semibold tracking-wide ${BADGE[lvl]}`}>
                     {lvl.toUpperCase()}
@@ -133,8 +157,13 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                     <span className={`text-xs px-2 py-0.5 rounded-full font-semibold tracking-wide ${BADGE[lvl]}`}>
                       {lvl.toUpperCase()}
                     </span>
+                    {showProb && until && (
+                      <span className="text-emerald-400 text-xs tabular-nums">{until}</span>
+                    )}
                     <span className={`tabular-nums font-semibold text-sm ${SCORE_COLOR[lvl]}`}>
-                      {row.combined_score.toFixed(4)}
+                      {showProb
+                        ? (row.insider_trading_prob != null ? row.insider_trading_prob.toFixed(3) : '—')
+                        : row.combined_score.toFixed(4)}
                     </span>
                   </div>
                 </div>
@@ -153,9 +182,30 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-gray-500">Wallet Score</span>
-                    <ScoreBar value={row.wallet_score} colorClass={row.wallet_score >= 0.6 ? 'bg-purple-400' : 'bg-indigo-500'} />
+                    <ScoreBar value={row.wallet_score ?? 0} colorClass={(row.wallet_score ?? 0) >= 0.6 ? 'bg-purple-400' : 'bg-indigo-500'} />
                   </div>
                 </div>
+
+                {/* RF prob + end_date for live markets */}
+                {showProb && (
+                  <div className="mb-4 flex flex-wrap gap-4 text-xs">
+                    {row.insider_trading_prob != null && (
+                      <span className="text-gray-400">
+                        RF probability: <span className={`font-semibold tabular-nums ${SCORE_COLOR[lvl]}`}>{row.insider_trading_prob.toFixed(3)}</span>
+                      </span>
+                    )}
+                    {until && (
+                      <span className="text-gray-400">
+                        Resolves in: <span className="text-emerald-400 font-semibold">{until}</span>
+                      </span>
+                    )}
+                    {row.combined_score != null && (
+                      <span className="text-gray-400">
+                        Combined score: <span className="text-gray-200 font-semibold tabular-nums">{row.combined_score.toFixed(4)}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
                   {s ? (
