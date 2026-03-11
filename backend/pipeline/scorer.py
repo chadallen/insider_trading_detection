@@ -25,6 +25,8 @@ RF_PRICE_FEATURES = [
 ]
 
 RF_WALLET_FEATURES = [
+    "new_wallet_ratio",
+    "new_wallet_ratio_6h",
     "burst_score",
     "directional_consensus",
     "trade_vpin",
@@ -67,7 +69,8 @@ def build_combined(df_scored: pd.DataFrame, df_wallet_agg: pd.DataFrame | None) 
         )
 
     # Merge
-    wallet_cols = ["question", "wallet_score", "burst_score", "directional_consensus", "trade_vpin"]
+    wallet_cols = ["question", "wallet_score", "new_wallet_ratio", "new_wallet_ratio_6h",
+                   "burst_score", "directional_consensus", "trade_vpin"]
     df_combined = df_price.merge(
         df_wallet[wallet_cols]
         if not df_wallet.empty and all(c in df_wallet.columns for c in wallet_cols)

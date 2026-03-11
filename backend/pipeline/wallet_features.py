@@ -230,22 +230,74 @@ def extract_wallet_features(dune_results: dict) -> dict:
 
 # ── Top-N wallet query from Dune (Cell 11) ────────────────────────────────
 
-def fetch_top_n_wallet_data(df_scored: pd.DataFrame, top_n: int = TOP_N_MARKETS) -> pd.DataFrame:
+def fetch_top_n_wallet_data(
+    df_scored: pd.DataFrame,
+    df_markets: pd.DataFrame,
+    top_n: int = TOP_N_MARKETS,
+) -> pd.DataFrame:
     """
-    Fetches burst_score, directional_consensus, trade_vpin for top N markets.
+    Fetches wallet features for top N markets by suspicion_score.
+    Uses per-market end_date (not a rolling window) so older resolved
+    markets are included. Also computes new_wallet_ratio_12h/6h.
     ~4 credits.
     """
     top_markets = df_scored.nlargest(top_n, "suspicion_score")
-    in_clause = ",\n    ".join(sql_quote(q) for q in top_markets["question"].tolist())
+
+    # Build per-market end_date lookup from df_markets
+    end_dates = (
+        df_markets[["question", "end_date"]]
+        .set_index("question")["end_date"]
+        .to_dict()
+    )
+
+    # VALUES clause: one row per market with its resolution timestamp
+    values_rows = []
+    for q in top_markets["question"].tolist():
+        end_date = end_dates.get(q, "")
+        if not end_date:
+            continue
+        # Normalise to plain timestamp (strip trailing Z or timezone)
+        ts = str(end_date).replace("Z", "").replace("+00:00", "").replace("T", " ")[:19]
+        values_rows.append(f"    ({sql_quote(q)}, TIMESTAMP '{ts}')")
+
+    if not values_rows:
+        print("No markets with end_date — skipping wallet query")
+        return pd.DataFrame()
+
+    values_clause = ",\n".join(values_rows)
 
     sql = f"""
-WITH trades AS (
-    SELECT question, maker, price, amount, token_outcome_name, block_time
-    FROM polymarket_polygon.market_trades
-    WHERE question IN (
-    {in_clause}
-)
-    AND block_time >= NOW() - INTERVAL '90' DAY
+WITH market_times AS (
+    SELECT *
+    FROM (VALUES
+{values_clause}
+    ) AS t(question, end_date)
+),
+trades AS (
+    SELECT t.question, t.maker, t.price, t.amount, t.token_outcome_name,
+           t.block_time, mt.end_date
+    FROM polymarket_polygon.market_trades t
+    JOIN market_times mt ON t.question = mt.question
+    WHERE t.block_time <= mt.end_date
+),
+wallet_first_seen AS (
+    SELECT question, maker, amount, end_date,
+           MIN(block_time) OVER (PARTITION BY question, maker) AS first_seen
+    FROM trades
+),
+new_wallets_12h AS (
+    SELECT question,
+           SUM(CASE WHEN first_seen >= end_date - INTERVAL '12' HOUR
+                    THEN amount ELSE 0 END) AS new_wallet_volume_12h
+    FROM wallet_first_seen
+    GROUP BY question
+),
+new_wallets_6h AS (
+    SELECT question,
+           SUM(CASE WHEN first_seen >= end_date - INTERVAL '6' HOUR
+                    THEN amount ELSE 0 END) AS new_wallet_volume_6h
+    FROM wallet_first_seen
+    GROUP BY question
 ),
 burst AS (
     SELECT question, MAX(cnt) AS burst_score
@@ -271,10 +323,14 @@ vpin AS (
     FROM trades GROUP BY question
 )
 SELECT v.question, v.trade_vpin, v.total_volume, v.trade_count,
-       v.unique_wallets, b.burst_score, d.directional_consensus
+       v.unique_wallets, b.burst_score, d.directional_consensus,
+       COALESCE(nw12.new_wallet_volume_12h, 0) / NULLIF(v.total_volume, 0) AS new_wallet_ratio,
+       COALESCE(nw6.new_wallet_volume_6h,  0) / NULLIF(v.total_volume, 0) AS new_wallet_ratio_6h
 FROM vpin v
-JOIN burst b       ON v.question = b.question
-JOIN directional d ON v.question = d.question
+JOIN burst b            ON v.question = b.question
+JOIN directional d      ON v.question = d.question
+LEFT JOIN new_wallets_12h nw12 ON v.question = nw12.question
+LEFT JOIN new_wallets_6h  nw6  ON v.question = nw6.question
 """
 
     print(f"Wallet query for top {top_n} markets...")

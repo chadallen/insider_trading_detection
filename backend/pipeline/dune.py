@@ -37,7 +37,8 @@ def poll_until_done(execution_id: str, timeout: int = 180, interval: int = 5) ->
         if state == "QUERY_STATE_COMPLETED":
             return True
         if state in ("QUERY_STATE_FAILED", "QUERY_STATE_CANCELLED"):
-            print(f"  Query failed: {state}")
+            error = r.json().get("error", {})
+            print(f"  Query failed: {state} — {error}")
             return False
         print(f"  Status: {state} — waiting {interval}s...")
         time.sleep(interval)

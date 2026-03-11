@@ -135,7 +135,7 @@ def main():
     df_wallet_agg = state.get("df_wallet_agg")
     if not args.skip_dune:
         print(f"\n=== Top-{top_n} wallet query from Dune (~4 credits) ===")
-        df_wallet_agg = fetch_top_n_wallet_data(df_scored, top_n=top_n)
+        df_wallet_agg = fetch_top_n_wallet_data(df_scored, df_markets, top_n=top_n)
         cp.save("df_wallet_agg", df_wallet_agg)
     else:
         print("\n=== Skipping wallet query (--skip-dune) ===")
