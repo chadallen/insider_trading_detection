@@ -3,6 +3,7 @@ Wallet-based feature extraction via Dune Analytics.
 Corresponds to notebook Cells 7–11.
 """
 import os
+import re
 import pandas as pd
 from backend.config import TOP_N_MARKETS
 from backend.pipeline.dune import run_query, sql_quote
@@ -10,10 +11,15 @@ from backend.pipeline.dune import run_query, sql_quote
 
 # ── Labeled cases (ground truth) ─────────────────────────────────────────
 # Source of truth: data/labeled_cases.csv
-# To add a case: add row to CSV, add keyword to POSITIVE_KEYWORDS in scorer.py,
-# then run: python run.py --classifier-only
+# To add a case: add a row to the CSV, then run: python run.py --classifier-only
 
 _CSV_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "labeled_cases.csv")
+
+
+def load_labeled_cases() -> pd.DataFrame:
+    """Load labeled_cases.csv. Columns: key, label, question_filter, start, end, resolution, notes."""
+    return pd.read_csv(_CSV_PATH)
+
 
 def _load_labeled_market_configs(csv_path: str) -> dict:
     df = pd.read_csv(csv_path)
@@ -29,6 +35,24 @@ def _load_labeled_market_configs(csv_path: str) -> dict:
     return configs
 
 LABELED_MARKET_CONFIGS = _load_labeled_market_configs(_CSV_PATH)
+
+
+# ── Question filter matching ───────────────────────────────────────────────
+
+def _sql_like_to_regex(like_pattern: str) -> re.Pattern:
+    """Convert a SQL LIKE pattern (% = wildcard) to a compiled Python regex."""
+    parts = like_pattern.split('%')
+    return re.compile('.*'.join(re.escape(p) for p in parts), re.IGNORECASE)
+
+
+def question_matches_filter(question: str, question_filter: str) -> bool:
+    """
+    Return True if question matches the SQL LIKE question_filter from labeled_cases.csv.
+    Handles OR-separated LIKE clauses, e.g.:
+      "question LIKE '%Maduro out%' OR question LIKE '%Maduro%custody%'"
+    """
+    like_patterns = re.findall(r"LIKE\s+'([^']+)'", question_filter, re.IGNORECASE)
+    return any(_sql_like_to_regex(p).search(question) for p in like_patterns)
 
 
 # ── Dune SQL builder ───────────────────────────────────────────────────────
@@ -79,8 +103,8 @@ directional AS (
     FROM (SELECT token_outcome_name, SUM(amount) AS ov
           FROM trades GROUP BY token_outcome_name) x
 ),
-vpin AS (
-    SELECT ABS(yes_vol - no_vol) / NULLIF(yes_vol + no_vol, 0) AS trade_vpin
+order_flow AS (
+    SELECT ABS(yes_vol - no_vol) / NULLIF(yes_vol + no_vol, 0) AS order_flow_imbalance
     FROM (SELECT SUM(CASE WHEN price > 0.5  THEN amount ELSE 0 END) AS yes_vol,
                  SUM(CASE WHEN price <= 0.5 THEN amount ELSE 0 END) AS no_vol
           FROM trades) x
@@ -88,43 +112,11 @@ vpin AS (
 SELECT ms.trade_count, ms.unique_wallets, ms.total_volume,
     COALESCE(nw12.new_wallet_volume_12h, 0) / NULLIF(ms.total_volume, 0) AS new_wallet_ratio_12h,
     COALESCE(nw6.new_wallet_volume_6h,  0) / NULLIF(ms.total_volume, 0) AS new_wallet_ratio_6h,
-    b.burst_score, d.directional_consensus, v.trade_vpin
+    b.burst_score, d.directional_consensus, o.order_flow_imbalance
 FROM market_stats ms
 CROSS JOIN new_wallets_12h nw12 CROSS JOIN new_wallets_6h nw6
-CROSS JOIN burst b CROSS JOIN directional d CROSS JOIN vpin v
+CROSS JOIN burst b CROSS JOIN directional d CROSS JOIN order_flow o
 """
-
-
-# ── Rule-based wallet suspicion score ────────────────────────────────────
-
-def compute_wallet_score(features: dict) -> float:
-    """
-    Rule-based wallet suspicion score 0.0–1.0.
-    Each of 5 signals contributes up to 0.20.
-    """
-    score = 0.0
-
-    nwr = features.get("new_wallet_ratio", 0)
-    if nwr > 0.50:   score += 0.20
-    elif nwr > 0.10: score += 0.10
-
-    nwr_6h = features.get("new_wallet_ratio_6h", 0)
-    if nwr_6h > 0.10:   score += 0.20
-    elif nwr_6h > 0.05: score += 0.10
-
-    vpin = features.get("trade_vpin", 0)
-    if vpin > 0.80:   score += 0.20
-    elif vpin > 0.60: score += 0.10
-
-    burst = features.get("burst_score", 0)
-    if burst > 200:  score += 0.20
-    elif burst > 50: score += 0.10
-
-    dc = features.get("directional_consensus", 0)
-    if dc > 0.70:   score += 0.20
-    elif dc > 0.55: score += 0.10
-
-    return round(score, 2)
 
 
 # ── Fetch labeled market data from Dune (Cell 8) ──────────────────────────
@@ -159,7 +151,7 @@ def fetch_labeled_market_trades() -> dict:
 _COLUMN_MAP = {
     "new_wallet_ratio_12h":  "new_wallet_ratio",
     "new_wallet_ratio_6h":   "new_wallet_ratio_6h",
-    "trade_vpin":            "trade_vpin",
+    "order_flow_imbalance":  "order_flow_imbalance",
     "burst_score":           "burst_score",
     "directional_consensus": "directional_consensus",
     "total_volume":          "total_volume",
@@ -185,7 +177,7 @@ def extract_wallet_features(dune_results: dict) -> dict:
         print(
             f"{name.upper()} ({LABELED_MARKET_CONFIGS[name]['label']}){flag}\n"
             f"  Vol ${feats['total_volume']:>14,.0f} | Wallets {int(feats['unique_wallets']):,}\n"
-            f"  New 6h {feats['new_wallet_ratio_6h']:.1%} | VPIN {feats['trade_vpin']:.3f} "
+            f"  New 6h {feats['new_wallet_ratio_6h']:.1%} | OFI {feats['order_flow_imbalance']:.3f} "
             f"| Burst {int(feats['burst_score'])} | Dir {feats['directional_consensus']:.1%}\n"
         )
     print(f"Extracted features for {len(wallet_features)}/{len(LABELED_MARKET_CONFIGS)} markets")
@@ -284,27 +276,27 @@ directional AS (
           FROM trades GROUP BY question, token_outcome_name) x
     GROUP BY question
 ),
-vpin AS (
+order_flow AS (
     SELECT question,
            ABS(SUM(CASE WHEN price > 0.5  THEN amount ELSE 0 END) -
                SUM(CASE WHEN price <= 0.5 THEN amount ELSE 0 END)) /
-           NULLIF(SUM(amount), 0) AS trade_vpin,
+           NULLIF(SUM(amount), 0) AS order_flow_imbalance,
            SUM(amount)            AS total_volume,
            COUNT(*)               AS trade_count,
            COUNT(DISTINCT maker)  AS unique_wallets
     FROM trades GROUP BY question
 )
-SELECT v.question, v.trade_vpin, v.total_volume, v.trade_count,
-       v.unique_wallets,
-       b.burst_score * 1.0 / NULLIF(v.trade_count, 0) AS burst_score,
+SELECT o.question, o.order_flow_imbalance, o.total_volume, o.trade_count,
+       o.unique_wallets,
+       b.burst_score * 1.0 / NULLIF(o.trade_count, 0) AS burst_score,
        d.directional_consensus,
-       COALESCE(nw12.new_wallet_volume_12h, 0) / NULLIF(v.total_volume, 0) AS new_wallet_ratio,
-       COALESCE(nw6.new_wallet_volume_6h,  0) / NULLIF(v.total_volume, 0) AS new_wallet_ratio_6h
-FROM vpin v
-JOIN burst b            ON v.question = b.question
-JOIN directional d      ON v.question = d.question
-LEFT JOIN new_wallets_12h nw12 ON v.question = nw12.question
-LEFT JOIN new_wallets_6h  nw6  ON v.question = nw6.question
+       COALESCE(nw12.new_wallet_volume_12h, 0) / NULLIF(o.total_volume, 0) AS new_wallet_ratio,
+       COALESCE(nw6.new_wallet_volume_6h,  0) / NULLIF(o.total_volume, 0) AS new_wallet_ratio_6h
+FROM order_flow o
+JOIN burst b            ON o.question = b.question
+JOIN directional d      ON o.question = d.question
+LEFT JOIN new_wallets_12h nw12 ON o.question = nw12.question
+LEFT JOIN new_wallets_6h  nw6  ON o.question = nw6.question
 """
 
     print(f"Wallet query for top {top_n} markets...")

@@ -11,7 +11,7 @@ Run modes:
   python run.py --live             POC: score open markets ending within --hours-ahead hours
 
 Example iteration loop (model tuning):
-  1. Edit scorer.py (RF_FEATURES, POSITIVE_KEYWORDS, hyperparams)
+  1. Edit labeled_cases.csv to add or adjust cases
   2. python run.py --classifier-only
   3. Review output, repeat
 """
@@ -72,16 +72,36 @@ def push_to_github(df_combined, df_scored, df_wallet_agg):
     print("Done — dashboard will update within ~1 minute.")
 
 
+def _annotate_labeled_windows(df_markets: pd.DataFrame) -> pd.DataFrame:
+    """
+    For markets matching labeled cases, set price_start_time to the case's
+    start timestamp. fetch_price_histories() uses this to extend the CLOB
+    window back to the start of the known suspicious period rather than just
+    the default 48h before resolution.
+    """
+    from backend.pipeline.wallet_features import load_labeled_cases, question_matches_filter
+    labeled = load_labeled_cases()
+    df = df_markets.copy()
+    df["price_start_time"] = None
+    for _, case in labeled.iterrows():
+        mask = df["question"].apply(
+            lambda q: question_matches_filter(q, case["question_filter"])
+        )
+        df.loc[mask, "price_start_time"] = case["start"]
+    n = df["price_start_time"].notna().sum()
+    if n:
+        print(f"  {n} markets annotated with labeled case price windows")
+    return df
+
+
 def main():
     args = parse_args()
 
     import backend.checkpoints as cp
     from backend.pipeline.fetcher import fetch_markets, fetch_price_histories, fetch_live_markets
-    from backend.pipeline.price_features import (
-        build_price_features, enrich_with_dune_vpin, score_with_isolation_forest
-    )
+    from backend.pipeline.price_features import build_price_features, score_with_isolation_forest
     from backend.pipeline.wallet_features import fetch_top_n_wallet_data
-    from backend.pipeline.scorer import build_combined, train_classifier, RF_FEATURES, RF_WALLET_FEATURES
+    from backend.pipeline.scorer import merge_features, train_classifier, RF_FEATURES, RF_WALLET_FEATURES
     from backend.config import TOP_N_MARKETS
 
     top_n = args.top_n or TOP_N_MARKETS
@@ -95,6 +115,10 @@ def main():
             print("No saved df_combined found. Run full pipeline first.")
             sys.exit(1)
         print(f"Loaded df_combined: {len(df_combined)} markets")
+        if "suspicion_score" not in df_combined.columns:
+            print("WARNING: df_combined has no suspicion_score column.")
+            print("This checkpoint predates Phase 1. Run the full pipeline to rebuild it.")
+            sys.exit(1)
 
         _preflight(df_combined)
         print("\n=== Training RF classifier ===")
@@ -110,7 +134,7 @@ def main():
     # ── Live mode: score open markets resolving soon (POC) ───────────────
     if args.live:
         _run_live(args, cp, build_price_features, score_with_isolation_forest,
-                  fetch_top_n_wallet_data, build_combined, train_classifier,
+                  fetch_top_n_wallet_data, merge_features, train_classifier,
                   fetch_live_markets, top_n)
         return
 
@@ -127,16 +151,13 @@ def main():
         cp.save("df_markets", df_markets)
 
         print("\n=== Fetching price histories ===")
+        df_markets = _annotate_labeled_windows(df_markets)
         histories = fetch_price_histories(df_markets)
         cp.save("histories", histories)
 
     # ── Price features ────────────────────────────────────────────────────
     print("\n=== Computing price features ===")
     df_scored = build_price_features(df_markets, histories)
-
-    if not args.skip_dune:
-        print("\n=== Enriching VPIN from Dune (~1 credit) ===")
-        df_scored = enrich_with_dune_vpin(df_scored)
 
     print("\n=== Isolation Forest scoring ===")
     df_scored = score_with_isolation_forest(df_scored, contamination=args.contamination)
@@ -153,9 +174,9 @@ def main():
         if df_wallet_agg is not None:
             print(f"  Using cached df_wallet_agg ({len(df_wallet_agg)} markets)")
 
-    # ── Combine scores ────────────────────────────────────────────────────
-    print("\n=== Combining scores ===")
-    df_combined = build_combined(df_scored, df_wallet_agg)
+    # ── Merge features ────────────────────────────────────────────────────
+    print("\n=== Merging features ===")
+    df_combined = merge_features(df_scored, df_wallet_agg)
 
     # ── Train classifier ──────────────────────────────────────────────────
     _preflight(df_combined)
@@ -173,17 +194,16 @@ def main():
 
 
 def _run_live(args, cp, build_price_features, score_with_isolation_forest,
-              fetch_top_n_wallet_data, build_combined, train_classifier,
+              fetch_top_n_wallet_data, merge_features, train_classifier,
               fetch_live_markets, top_n):
     """
     POC live mode: fetch open markets ending within --hours-ahead, score them,
     then apply the RF trained on historical labeled cases.
 
-    NOTE: the classifier is trained on historical positives (POSITIVE_KEYWORDS)
-    and implicit negatives, so predictions on live markets are indicative only.
+    NOTE: positives are drawn from labeled_cases.csv; predictions on live markets
+    are indicative only since labeled cases are all historical.
     """
     from backend.pipeline.fetcher import fetch_price_histories
-    from datetime import datetime, timezone
 
     print(f"=== LIVE MODE (POC) — markets ending within {args.hours_ahead}h ===\n")
 
@@ -219,11 +239,11 @@ def _run_live(args, cp, build_price_features, score_with_isolation_forest,
         print(f"\n=== Wallet query for top {live_top_n} live markets (~4 credits) ===")
         df_wallet_agg = fetch_top_n_wallet_data(df_scored, df_markets, top_n=live_top_n)
 
-    # 4. Combine + classify
-    print("\n=== Combining scores ===")
-    df_combined = build_combined(df_scored, df_wallet_agg)
+    # 4. Merge + classify
+    print("\n=== Merging features ===")
+    df_combined = merge_features(df_scored, df_wallet_agg)
 
-    # Load historical df_combined to use its positives/negatives for RF training
+    # Load historical df_combined to give the RF more training context
     state = cp.load_all()
     df_hist = state.get("df_combined")
     if df_hist is not None and not df_hist.empty:
@@ -256,9 +276,7 @@ def _run_live(args, cp, build_price_features, score_with_isolation_forest,
     print(f"\nOutputs written to outputs/ and dashboard/public/")
 
     # Print summary
-    cols = ["question", "insider_trading_prob", "combined_score", "price_score"]
-    if "wallet_score" in df_live_results.columns:
-        cols.append("wallet_score")
+    cols = ["question", "insider_trading_prob", "suspicion_score"]
     available = [c for c in cols if c in df_live_results.columns]
 
     print(f"\n{'='*70}")
@@ -269,16 +287,13 @@ def _run_live(args, cp, build_price_features, score_with_isolation_forest,
         print("No scored markets — check price history coverage.")
     else:
         for _, row in top.iterrows():
-            prob = row.get("insider_trading_prob", float("nan"))
-            price = row.get("price_score", float("nan"))
-            wallet = row.get("wallet_score", float("nan"))
-            q = row["question"][:70]
-            wallet_str = f"  wallet={wallet:.2f}" if pd.notna(wallet) else ""
-            print(f"  {prob:.3f}  price={price:.2f}{wallet_str}  {q}")
+            prob   = row.get("insider_trading_prob", float("nan"))
+            susp   = row.get("suspicion_score", float("nan"))
+            q      = row["question"][:70]
+            print(f"  {prob:.3f}  suspicion={susp:.3f}  {q}")
     print(f"{'='*70}\n")
 
     if args.push:
-        from backend.pipeline.scorer import RF_FEATURES
         push_to_github(df_live_results, df_scored, df_wallet_agg)
 
 
