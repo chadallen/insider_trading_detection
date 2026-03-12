@@ -5,15 +5,13 @@ An ML-based insider trading detection system for Polymarket prediction markets.
 Learning project / MVP — not production code. Prioritize simplicity.
 
 ### My Background
-- Product manager with basic coding experience
-- ML beginner — explain modeling decisions clearly
+- Intermediate ML background — explain modeling decisions clearly
 - Prefer to understand tradeoffs before implementing
 
 ### Tech Stack
 
 - Language: Python
 - Data: Polymarket API, Dune Analytics (on-chain)
-- Storage: Google Drive (checkpoints)
 - Dashboard: Vercel
 - Repo: github.com/chadallen/insider_trading_detection
 
