@@ -130,18 +130,48 @@ def fetch_live_markets(hours_ahead: int = 48, min_volume: float = 1_000_000) -> 
     return df
 
 
-def fetch_price_history(token_id: str, resolution_time, hours_before: int = PRICE_HOURS_BEFORE) -> pd.DataFrame:
-    """Fetch CLOB price history for a single market token."""
+def fetch_price_history(
+    token_id: str,
+    resolution_time,
+    hours_before: int = PRICE_HOURS_BEFORE,
+    start_time=None,
+) -> pd.DataFrame:
+    """
+    Fetch CLOB price history for a single market token.
+
+    start_time: optional datetime or ISO string. If provided, overrides the
+    hours_before calculation with min(start_time, resolution - hours_before)
+    so labeled cases with early suspicious windows get full coverage.
+    """
     if isinstance(resolution_time, str):
         res_time = datetime.fromisoformat(resolution_time.replace("Z", "+00:00"))
     else:
         res_time = resolution_time
-    start_time = res_time - timedelta(hours=hours_before)
+
+    default_start = res_time - timedelta(hours=hours_before)
+
+    if start_time is not None:
+        if isinstance(start_time, str):
+            st_str = start_time.strip()
+            if "T" not in st_str:
+                st_str += "T00:00:00+00:00"
+            elif st_str.endswith("Z"):
+                st_str = st_str[:-1] + "+00:00"
+            elif "+" not in st_str and st_str[-6] != "+":
+                st_str += "+00:00"
+            parsed_start = datetime.fromisoformat(st_str)
+        else:
+            parsed_start = start_time
+        # Use whichever start is earlier (never less than hours_before of history)
+        effective_start = min(parsed_start, default_start)
+    else:
+        effective_start = default_start
+
     params = {
         "market":    token_id,
         "interval":  "max",
-        "fidelity":  720,
-        "startTs":   int(start_time.timestamp()),
+        "fidelity":  60,
+        "startTs":   int(effective_start.timestamp()),
         "endTs":     int(res_time.timestamp()),
     }
     try:
@@ -172,7 +202,11 @@ def fetch_price_histories(df_markets: pd.DataFrame) -> dict:
             print(f"  {i}/{len(df_markets)}...")
         if row["resolution_time"] is None:
             continue
-        history = fetch_price_history(row["token_id"], row["resolution_time"])
+        history = fetch_price_history(
+            row["token_id"],
+            row["resolution_time"],
+            start_time=row.get("price_start_time"),
+        )
         if len(history) < 3:
             continue
         if not (0.15 <= history["price"].iloc[0] <= 0.85):
