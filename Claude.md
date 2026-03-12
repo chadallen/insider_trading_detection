@@ -10,7 +10,7 @@ Learning project / MVP — not production code. Prioritize simplicity.
 - Prefer to understand tradeoffs before implementing
 
 ### Tech Stack
-- Runtime: Google Colab
+
 - Language: Python
 - Data: Polymarket API, Dune Analytics (on-chain)
 - Storage: Google Drive (checkpoints)
