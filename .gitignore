@@ -1,5 +1,6 @@
 __pycache__/
 data/
+!data/labeled_cases.csv
 .env
 dashboard/node_modules/
 dashboard/dist/

@@ -2,69 +2,33 @@
 Wallet-based feature extraction via Dune Analytics.
 Corresponds to notebook Cells 7–11.
 """
+import os
 import pandas as pd
 from backend.config import TOP_N_MARKETS
 from backend.pipeline.dune import run_query, sql_quote
 
 
 # ── Labeled cases (ground truth) ─────────────────────────────────────────
+# Source of truth: data/labeled_cases.csv
+# To add a case: add row to CSV, add keyword to POSITIVE_KEYWORDS in scorer.py,
+# then run: python run.py --classifier-only
 
-LABELED_MARKET_CONFIGS = {
-    "iran": {
-        "label": "CONFIRMED",
-        "question_filter": "question = 'US strikes Iran by February 28, 2026?'",
-        "start": "2026-02-26", "end": "2026-02-28",
-        "resolution": "2026-02-28T23:59:00",
-    },
-    "nobel": {
-        "label": "CONFIRMED",
-        "question_filter": "question = 'Will María Corina Machado win the Nobel Peace Prize in 2025?'",
-        "start": "2025-10-08", "end": "2025-10-11",
-        "resolution": "2025-10-10T11:00:00",
-    },
-    "maduro": {
-        "label": "SUSPECTED",
-        "question_filter": "question LIKE '%Maduro%'",
-        "start": "2026-01-28", "end": "2026-01-31",
-        "resolution": "2026-01-31T00:00:00",
-    },
-    "venezuela_military": {
-        "label": "SUSPECTED",
-        "question_filter": "question = 'US x Venezuela military engagement by January 15, 2026?'",
-        "start": "2026-01-01", "end": "2026-01-04",
-        "resolution": "2026-01-03T00:00:00",
-    },
-    "zachxbt": {
-        "label": "SUSPECTED",
-        "question_filter": "question = 'Will Axiom be accused of insider trading?'",
-        "start": "2026-02-24", "end": "2026-02-27",
-        "resolution": "2026-02-26T23:59:00",
-    },
-    "khamenei": {
-        "label": "SUSPECTED",
-        "question_filter": "question = 'Khamenei out as Supreme Leader of Iran by January 31?'",
-        "start": "2026-01-28", "end": "2026-02-01",
-        "resolution": "2026-01-31T00:00:00",
-    },
-    "taylor_wedding": {
-        "label": "SUSPECTED",
-        "question_filter": "question = 'Taylor Swift x Travis Kelce get married by December 31?'",
-        "start": "2025-12-28", "end": "2026-01-01",
-        "resolution": "2025-12-31T23:59:00",
-    },
-    "alpha_raccoon": {
-        "label": "SUSPECTED",
-        "question_filter": "question = 'Will The Fate of Ophelia by Taylor Swift be the #1 searched song on Google this year?'",
-        "start": "2025-11-28", "end": "2025-12-05",
-        "resolution": "2025-12-04T00:00:00",
-    },
-    "gemini": {
-        "label": "POSSIBLE",
-        "question_filter": "question = 'Gemini 3.0 Flash released by December 31?'",
-        "start": "2025-12-10", "end": "2025-12-18",
-        "resolution": "2025-12-17T00:00:00",
-    },
-}
+_CSV_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "labeled_cases.csv")
+
+def _load_labeled_market_configs(csv_path: str) -> dict:
+    df = pd.read_csv(csv_path)
+    configs = {}
+    for _, row in df.iterrows():
+        configs[row["key"]] = {
+            "label": row["label"],
+            "question_filter": row["question_filter"],
+            "start": str(row["start"]),
+            "end": str(row["end"]),
+            "resolution": str(row["resolution"]),
+        }
+    return configs
+
+LABELED_MARKET_CONFIGS = _load_labeled_market_configs(_CSV_PATH)
 
 
 # ── Dune SQL builder ───────────────────────────────────────────────────────
