@@ -4,3 +4,4 @@ data/
 .env
 dashboard/node_modules/
 dashboard/dist/
+venv/
