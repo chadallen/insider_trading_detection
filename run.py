@@ -22,6 +22,12 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 load_dotenv()
 
+_dune_key = os.environ.get("DUNE_API_KEY", "")
+if _dune_key:
+    print(f"[env] DUNE_API_KEY loaded ({len(_dune_key)} chars)")
+else:
+    print("[env] WARNING: DUNE_API_KEY not found — wallet queries will fail")
+
 # Allow running from repo root without installing
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -101,7 +107,7 @@ def main():
     from backend.pipeline.fetcher import fetch_markets, fetch_price_histories, fetch_live_markets
     from backend.pipeline.price_features import build_price_features, score_with_isolation_forest
     from backend.pipeline.wallet_features import (
-        fetch_top_n_wallet_data, fetch_wallet_age_features, fetch_cross_market_wallet_flags,
+        fetch_top_n_wallet_data, fetch_wallet_age_features, compute_cross_market_wallet_flags,
     )
     from backend.pipeline.scorer import merge_features, train_classifier
     from backend.config import TOP_N_MARKETS, POLYGONSCAN_API_KEY
@@ -178,10 +184,11 @@ def main():
                 df_wallet_agg, polygonscan_api_key=POLYGONSCAN_API_KEY
             )
 
-            # Cross-market wallet overlap (~0.5 Dune credits)
-            print("\n=== Cross-market wallet flag query (~0.5 credits) ===")
-            top_questions = df_wallet_agg["question"].tolist()
-            df_cross = fetch_cross_market_wallet_flags(top_questions)
+            # Cross-market wallet overlap (local — no Dune credits)
+            # Uses top_wallet_addresses already fetched; covers top-N wallets only.
+            # See wallet_features.py compute_cross_market_wallet_flags() for details.
+            print("\n=== Cross-market wallet flag (local computation) ===")
+            df_cross = compute_cross_market_wallet_flags(df_wallet_agg)
             if not df_cross.empty:
                 df_wallet_agg = df_wallet_agg.merge(
                     df_cross[["question", "cross_market_wallet_count"]],

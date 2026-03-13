@@ -5,3 +5,5 @@ data/
 dashboard/node_modules/
 dashboard/dist/
 venv/
+.DS_Store
+.claude/worktrees/

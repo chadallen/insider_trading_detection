@@ -13,6 +13,21 @@ end-to-end with the new ensemble model (PU-LightGBM + IsolationForest +
 One-Class SVM). A full run with real Dune data produced results across 77
 markets. Phase 4 (new data sources, primarily GDELT) is next.
 
+### Architecture Decision: cross_market_wallet_flag (2026-03-13)
+
+`cross_market_wallet_flag` is now computed **locally** from `top_wallet_addresses`
+already fetched by the main Dune wallet query. The original Dune-based query
+(`fetch_cross_market_wallet_flags`) was disabled because it consistently hit the
+10-credit per-query resource cap (`FAILED_TYPE_RESOURCES_CAP_REACHED`).
+
+**Tradeoff:** The local approach only covers the top-N wallets per market (top 20),
+not the full trader population. Concentrated insiders (large bets) are likely
+captured; distributed/layered trading across many small wallets may be missed.
+
+**To re-enable the Dune query:** Raise `DUNE_MAX_CREDITS` and uncomment
+`fetch_cross_market_wallet_flags()` in `backend/pipeline/wallet_features.py`,
+then update `run.py` to call it instead of `compute_cross_market_wallet_flags()`.
+
 **Top suspects in current dataset (77 markets):**
 1. Maduro out by Jan 31, 2026 — prob 0.70
 2. Government shutdown end Nov 12 — prob 0.69

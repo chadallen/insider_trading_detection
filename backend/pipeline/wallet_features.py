@@ -424,48 +424,99 @@ def fetch_wallet_age_features(
 
 # ── Cross-market wallet flag via Dune (Phase 2) ───────────────────────────
 
-def fetch_cross_market_wallet_flags(
-    questions: list[str],
+def compute_cross_market_wallet_flags(
+    df_wallet_agg: "pd.DataFrame",
     min_shared_markets: int = 3,
 ) -> "pd.DataFrame":
     """
-    For each market in `questions`, count how many wallets traded in at least
-    `min_shared_markets` of the listed markets (cross_market_wallet_count).
+    Compute cross_market_wallet_count locally from the top_wallet_addresses
+    column already fetched by fetch_top_n_wallet_data(). No Dune credits needed.
 
-    A wallet active in 3+ suspicious markets is a strong insider signal.
-    ~0.5 Dune credits per call.
+    For each market, counts how many of its top wallets also appear in at least
+    `min_shared_markets` other markets in df_wallet_agg.
+
+    Limitation: only covers the top-N wallets per market (currently top 20),
+    not the full trader population. Concentrated insiders (large bets) are
+    likely captured; distributed/layered trading across many small wallets may
+    be missed.
+
+    NOTE (2026-03-13): Replaced the Dune-based fetch_cross_market_wallet_flags()
+    below because the Dune query consistently hit the 10-credit resource cap.
+    The original Dune query is preserved (commented out) in case full-population
+    coverage is needed in future. To re-enable, raise DUNE_MAX_CREDITS and call
+    fetch_cross_market_wallet_flags() in run.py instead.
 
     Returns DataFrame with columns: question, cross_market_wallet_count.
     """
-    if not questions:
-        return pd.DataFrame()
+    if df_wallet_agg.empty or "top_wallet_addresses" not in df_wallet_agg.columns:
+        return pd.DataFrame(columns=["question", "cross_market_wallet_count"])
 
-    q_list = ", ".join(sql_quote(q) for q in questions)
+    # Build wallet → set of questions mapping
+    wallet_to_questions: dict[str, set[str]] = {}
+    for _, row in df_wallet_agg.iterrows():
+        addrs = str(row["top_wallet_addresses"]).split(",")
+        for addr in addrs:
+            addr = addr.strip().lower()
+            if addr:
+                wallet_to_questions.setdefault(addr, set()).add(row["question"])
 
-    sql = f"""
-WITH top_market_wallets AS (
-    SELECT maker, question
-    FROM polymarket_polygon.market_trades
-    WHERE question IN ({q_list})
-    GROUP BY maker, question
-),
-wallet_market_counts AS (
-    SELECT maker, COUNT(DISTINCT question) AS markets_active
-    FROM top_market_wallets
-    GROUP BY maker
-),
-cross_market_per_question AS (
-    SELECT tmw.question,
-           COUNT(DISTINCT tmw.maker) AS cross_market_wallet_count
-    FROM top_market_wallets tmw
-    JOIN wallet_market_counts wmc ON tmw.maker = wmc.maker
-    WHERE wmc.markets_active >= {min_shared_markets}
-    GROUP BY tmw.question
-)
-SELECT question, cross_market_wallet_count
-FROM cross_market_per_question
-"""
+    # Wallets active in >= min_shared_markets markets
+    cross_market_wallets = {
+        w for w, qs in wallet_to_questions.items() if len(qs) >= min_shared_markets
+    }
 
-    print(f"Cross-market wallet flag query ({len(questions)} markets, min_shared={min_shared_markets})...")
-    df, _ = run_query(sql, label="cross_market_wallet_flags")
-    return df
+    # Count per market
+    records = []
+    for _, row in df_wallet_agg.iterrows():
+        addrs = {a.strip().lower() for a in str(row["top_wallet_addresses"]).split(",") if a.strip()}
+        count = len(addrs & cross_market_wallets)
+        records.append({"question": row["question"], "cross_market_wallet_count": count})
+
+    print(f"Cross-market wallet flag (local, top-wallet addresses, min_shared={min_shared_markets}): "
+          f"{len(cross_market_wallets)} cross-market wallets found")
+    return pd.DataFrame(records)
+
+
+# ── Dune-based cross-market wallet flag (DISABLED — hits 10-credit resource cap) ──
+# To re-enable: raise DUNE_MAX_CREDITS env var and call this instead of
+# compute_cross_market_wallet_flags() in run.py.
+#
+# def fetch_cross_market_wallet_flags(
+#     questions: list[str],
+#     min_shared_markets: int = 3,
+# ) -> "pd.DataFrame":
+#     """
+#     For each market in `questions`, count how many wallets traded in at least
+#     `min_shared_markets` of the listed markets (cross_market_wallet_count).
+#     Scans full polymarket_polygon.market_trades — catches distributed trading
+#     patterns missed by the top-wallet local approach. ~10-15 Dune credits.
+#     """
+#     if not questions:
+#         return pd.DataFrame()
+#     q_list = ", ".join(sql_quote(q) for q in questions)
+#     sql = f"""
+# WITH top_market_wallets AS (
+#     SELECT maker, question
+#     FROM polymarket_polygon.market_trades
+#     WHERE question IN ({q_list})
+#     GROUP BY maker, question
+# ),
+# wallet_market_counts AS (
+#     SELECT maker, COUNT(DISTINCT question) AS markets_active
+#     FROM top_market_wallets
+#     GROUP BY maker
+# ),
+# cross_market_per_question AS (
+#     SELECT tmw.question,
+#            COUNT(DISTINCT tmw.maker) AS cross_market_wallet_count
+#     FROM top_market_wallets tmw
+#     JOIN wallet_market_counts wmc ON tmw.maker = wmc.maker
+#     WHERE wmc.markets_active >= {min_shared_markets}
+#     GROUP BY tmw.question
+# )
+# SELECT question, cross_market_wallet_count
+# FROM cross_market_per_question
+# """
+#     print(f"Cross-market wallet flag query ({len(questions)} markets, min_shared={min_shared_markets})...")
+#     df, _ = run_query(sql, label="cross_market_wallet_flags")
+#     return df
