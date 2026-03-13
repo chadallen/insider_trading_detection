@@ -108,14 +108,37 @@ order_flow AS (
     FROM (SELECT SUM(CASE WHEN price > 0.5  THEN amount ELSE 0 END) AS yes_vol,
                  SUM(CASE WHEN price <= 0.5 THEN amount ELSE 0 END) AS no_vol
           FROM trades) x
+),
+wallet_vols AS (
+    SELECT maker, SUM(amount) AS wallet_vol
+    FROM trades
+    GROUP BY maker
+),
+wallet_ranked AS (
+    SELECT wallet_vol,
+           ROW_NUMBER() OVER (ORDER BY wallet_vol ASC) AS rk,
+           COUNT(*) OVER () AS n_wallets
+    FROM wallet_vols
+),
+concentration AS (
+    SELECT
+        CASE
+            WHEN SUM(wallet_vol) = 0 OR MAX(n_wallets) <= 1 THEN 0.0
+            ELSE (2.0 * SUM(CAST(rk AS DOUBLE) * wallet_vol) /
+                  (CAST(MAX(n_wallets) AS DOUBLE) * SUM(wallet_vol)))
+                 - CAST(MAX(n_wallets) + 1 AS DOUBLE) / CAST(MAX(n_wallets) AS DOUBLE)
+        END AS wallet_concentration
+    FROM wallet_ranked
 )
 SELECT ms.trade_count, ms.unique_wallets, ms.total_volume,
     COALESCE(nw12.new_wallet_volume_12h, 0) / NULLIF(ms.total_volume, 0) AS new_wallet_ratio_12h,
     COALESCE(nw6.new_wallet_volume_6h,  0) / NULLIF(ms.total_volume, 0) AS new_wallet_ratio_6h,
-    b.burst_score, d.directional_consensus, o.order_flow_imbalance
+    b.burst_score, d.directional_consensus, o.order_flow_imbalance,
+    c.wallet_concentration
 FROM market_stats ms
 CROSS JOIN new_wallets_12h nw12 CROSS JOIN new_wallets_6h nw6
 CROSS JOIN burst b CROSS JOIN directional d CROSS JOIN order_flow o
+CROSS JOIN concentration c
 """
 
 
@@ -154,6 +177,7 @@ _COLUMN_MAP = {
     "order_flow_imbalance":  "order_flow_imbalance",
     "burst_score":           "burst_score",
     "directional_consensus": "directional_consensus",
+    "wallet_concentration":  "wallet_concentration",
     "total_volume":          "total_volume",
     "unique_wallets":        "unique_wallets",
     "trade_count":           "trade_count",
@@ -178,7 +202,8 @@ def extract_wallet_features(dune_results: dict) -> dict:
             f"{name.upper()} ({LABELED_MARKET_CONFIGS[name]['label']}){flag}\n"
             f"  Vol ${feats['total_volume']:>14,.0f} | Wallets {int(feats['unique_wallets']):,}\n"
             f"  New 6h {feats['new_wallet_ratio_6h']:.1%} | OFI {feats['order_flow_imbalance']:.3f} "
-            f"| Burst {int(feats['burst_score'])} | Dir {feats['directional_consensus']:.1%}\n"
+            f"| Burst {int(feats['burst_score'])} | Dir {feats['directional_consensus']:.1%} "
+            f"| Conc {feats.get('wallet_concentration', 0):.3f}\n"
         )
     print(f"Extracted features for {len(wallet_features)}/{len(LABELED_MARKET_CONFIGS)} markets")
     return wallet_features
@@ -285,18 +310,58 @@ order_flow AS (
            COUNT(*)               AS trade_count,
            COUNT(DISTINCT maker)  AS unique_wallets
     FROM trades GROUP BY question
+),
+wallet_vols AS (
+    SELECT question, maker, SUM(amount) AS wallet_vol
+    FROM trades
+    GROUP BY question, maker
+),
+wallet_ranked AS (
+    SELECT question, maker, wallet_vol,
+           ROW_NUMBER() OVER (PARTITION BY question ORDER BY wallet_vol ASC) AS rk,
+           COUNT(*) OVER (PARTITION BY question) AS n_wallets
+    FROM wallet_vols
+),
+concentration AS (
+    SELECT question,
+           CASE
+               WHEN SUM(wallet_vol) = 0 OR MAX(n_wallets) <= 1 THEN 0.0
+               ELSE (2.0 * SUM(CAST(rk AS DOUBLE) * wallet_vol) /
+                     (CAST(MAX(n_wallets) AS DOUBLE) * SUM(wallet_vol)))
+                    - CAST(MAX(n_wallets) + 1 AS DOUBLE) / CAST(MAX(n_wallets) AS DOUBLE)
+           END AS wallet_concentration
+    FROM wallet_ranked
+    GROUP BY question
+),
+top_wallet_addrs AS (
+    SELECT question,
+           ARRAY_JOIN(
+               ARRAY_AGG(maker ORDER BY wallet_vol DESC),
+               ','
+           ) AS top_wallet_addresses
+    FROM (
+        SELECT question, maker, wallet_vol,
+               ROW_NUMBER() OVER (PARTITION BY question ORDER BY wallet_vol DESC) AS rn
+        FROM wallet_vols
+    ) ranked
+    WHERE rn <= 20
+    GROUP BY question
 )
 SELECT o.question, o.order_flow_imbalance, o.total_volume, o.trade_count,
        o.unique_wallets,
        b.burst_score * 1.0 / NULLIF(o.trade_count, 0) AS burst_score,
        d.directional_consensus,
        COALESCE(nw12.new_wallet_volume_12h, 0) / NULLIF(o.total_volume, 0) AS new_wallet_ratio,
-       COALESCE(nw6.new_wallet_volume_6h,  0) / NULLIF(o.total_volume, 0) AS new_wallet_ratio_6h
+       COALESCE(nw6.new_wallet_volume_6h,  0) / NULLIF(o.total_volume, 0) AS new_wallet_ratio_6h,
+       c.wallet_concentration,
+       wa.top_wallet_addresses
 FROM order_flow o
 JOIN burst b            ON o.question = b.question
 JOIN directional d      ON o.question = d.question
 LEFT JOIN new_wallets_12h nw12 ON o.question = nw12.question
 LEFT JOIN new_wallets_6h  nw6  ON o.question = nw6.question
+LEFT JOIN concentration c      ON o.question = c.question
+LEFT JOIN top_wallet_addrs wa  ON o.question = wa.question
 """
 
     print(f"Wallet query for top {top_n} markets...")
@@ -308,3 +373,99 @@ LEFT JOIN new_wallets_6h  nw6  ON o.question = nw6.question
         print("No results — check query or Dune status")
 
     return df_wallet_agg
+
+
+# ── Wallet age via Polygonscan (Phase 2) ──────────────────────────────────
+
+def fetch_wallet_age_features(
+    df_wallet_agg: "pd.DataFrame",
+    polygonscan_api_key: str = "",
+) -> "pd.DataFrame":
+    """
+    Compute wallet_age_median_days for each market by calling the Polygonscan
+    API for each wallet address found in the top_wallet_addresses column.
+
+    Requires df_wallet_agg to contain a 'top_wallet_addresses' column
+    (comma-separated wallet addresses, added by fetch_top_n_wallet_data in
+    Phase 2). If the column is absent the DataFrame is returned unchanged.
+
+    Free tier: ~4 req/sec, no API key required (slower without one).
+    """
+    import pandas as pd
+    from backend.pipeline.polygonscan import fetch_wallet_ages, compute_wallet_age_median
+
+    if df_wallet_agg.empty or "top_wallet_addresses" not in df_wallet_agg.columns:
+        print("  top_wallet_addresses column missing — skipping Polygonscan lookup")
+        return df_wallet_agg
+
+    # Collect all unique addresses across all markets
+    all_addrs: list[str] = []
+    for addr_str in df_wallet_agg["top_wallet_addresses"].dropna():
+        all_addrs.extend(str(addr_str).split(","))
+    all_addrs = [a.strip() for a in all_addrs if a.strip()]
+
+    if not all_addrs:
+        return df_wallet_agg
+
+    unique_count = len(set(a.lower() for a in all_addrs))
+    print(f"  Fetching wallet ages for {unique_count} unique wallets via Polygonscan...")
+    age_map = fetch_wallet_ages(all_addrs, api_key=polygonscan_api_key)
+    n_found = sum(1 for v in age_map.values() if v is not None)
+    print(f"  Resolved {n_found}/{unique_count} wallet ages")
+
+    df = df_wallet_agg.copy()
+    df["wallet_age_median_days"] = df["top_wallet_addresses"].apply(
+        lambda s: compute_wallet_age_median(
+            str(s).split(",") if pd.notna(s) else [], age_map
+        )
+    )
+    return df
+
+
+# ── Cross-market wallet flag via Dune (Phase 2) ───────────────────────────
+
+def fetch_cross_market_wallet_flags(
+    questions: list[str],
+    min_shared_markets: int = 3,
+) -> "pd.DataFrame":
+    """
+    For each market in `questions`, count how many wallets traded in at least
+    `min_shared_markets` of the listed markets (cross_market_wallet_count).
+
+    A wallet active in 3+ suspicious markets is a strong insider signal.
+    ~0.5 Dune credits per call.
+
+    Returns DataFrame with columns: question, cross_market_wallet_count.
+    """
+    if not questions:
+        return pd.DataFrame()
+
+    q_list = ", ".join(sql_quote(q) for q in questions)
+
+    sql = f"""
+WITH top_market_wallets AS (
+    SELECT maker, question
+    FROM polymarket_polygon.market_trades
+    WHERE question IN ({q_list})
+    GROUP BY maker, question
+),
+wallet_market_counts AS (
+    SELECT maker, COUNT(DISTINCT question) AS markets_active
+    FROM top_market_wallets
+    GROUP BY maker
+),
+cross_market_per_question AS (
+    SELECT tmw.question,
+           COUNT(DISTINCT tmw.maker) AS cross_market_wallet_count
+    FROM top_market_wallets tmw
+    JOIN wallet_market_counts wmc ON tmw.maker = wmc.maker
+    WHERE wmc.markets_active >= {min_shared_markets}
+    GROUP BY tmw.question
+)
+SELECT question, cross_market_wallet_count
+FROM cross_market_per_question
+"""
+
+    print(f"Cross-market wallet flag query ({len(questions)} markets, min_shared={min_shared_markets})...")
+    df, _ = run_query(sql, label="cross_market_wallet_flags")
+    return df

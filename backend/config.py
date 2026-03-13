@@ -12,6 +12,9 @@ GITHUB_TOKEN  = os.environ.get("GITHUB_TOKEN",  "")
 # ── Dune Analytics ────────────────────────────────────────────────────────
 DUNE_API_KEY  = os.environ.get("DUNE_API_KEY", "")
 
+# ── Polygonscan (free tier: 5 req/sec, optional API key for better limits) ─
+POLYGONSCAN_API_KEY = os.environ.get("POLYGONSCAN_API_KEY", "")
+
 # ── Pipeline settings ─────────────────────────────────────────────────────
 TOP_N_MARKETS      = int(os.environ.get("TOP_N_MARKETS", "50"))
 MIN_VOLUME_USD     = 10_000_000   # Markets below this are excluded

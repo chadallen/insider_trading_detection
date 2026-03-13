@@ -100,9 +100,11 @@ def main():
     import backend.checkpoints as cp
     from backend.pipeline.fetcher import fetch_markets, fetch_price_histories, fetch_live_markets
     from backend.pipeline.price_features import build_price_features, score_with_isolation_forest
-    from backend.pipeline.wallet_features import fetch_top_n_wallet_data
+    from backend.pipeline.wallet_features import (
+        fetch_top_n_wallet_data, fetch_wallet_age_features, fetch_cross_market_wallet_flags,
+    )
     from backend.pipeline.scorer import merge_features, train_classifier
-    from backend.config import TOP_N_MARKETS
+    from backend.config import TOP_N_MARKETS, POLYGONSCAN_API_KEY
 
     top_n = args.top_n or TOP_N_MARKETS
 
@@ -168,6 +170,31 @@ def main():
     if not args.skip_dune:
         print(f"\n=== Top-{top_n} wallet query from Dune (~4 credits) ===")
         df_wallet_agg = fetch_top_n_wallet_data(df_scored, df_markets, top_n=top_n)
+
+        if df_wallet_agg is not None and not df_wallet_agg.empty:
+            # Wallet age via Polygonscan (free, no extra Dune credits)
+            print("\n=== Wallet age lookup via Polygonscan ===")
+            df_wallet_agg = fetch_wallet_age_features(
+                df_wallet_agg, polygonscan_api_key=POLYGONSCAN_API_KEY
+            )
+
+            # Cross-market wallet overlap (~0.5 Dune credits)
+            print("\n=== Cross-market wallet flag query (~0.5 credits) ===")
+            top_questions = df_wallet_agg["question"].tolist()
+            df_cross = fetch_cross_market_wallet_flags(top_questions)
+            if not df_cross.empty:
+                df_wallet_agg = df_wallet_agg.merge(
+                    df_cross[["question", "cross_market_wallet_count"]],
+                    on="question",
+                    how="left",
+                )
+                df_wallet_agg["cross_market_wallet_flag"] = (
+                    pd.to_numeric(
+                        df_wallet_agg.get("cross_market_wallet_count", 0),
+                        errors="coerce",
+                    ).fillna(0)
+                )
+
         cp.save("df_wallet_agg", df_wallet_agg)
     else:
         print("\n=== Skipping wallet query (--skip-dune) ===")

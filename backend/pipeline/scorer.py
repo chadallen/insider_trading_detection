@@ -34,6 +34,8 @@ MODEL_PRICE_FEATURES = [
     "price_volatility",
     "max_single_move",
     "total_price_move",
+    "price_momentum_6h",
+    "price_momentum_12h",
 ]
 
 MODEL_WALLET_FEATURES = [
@@ -41,6 +43,9 @@ MODEL_WALLET_FEATURES = [
     "new_wallet_ratio_6h",
     "burst_score",
     "order_flow_imbalance",
+    "wallet_concentration",
+    "wallet_age_median_days",
+    "cross_market_wallet_flag",
 ]
 
 MODEL_FEATURES = MODEL_PRICE_FEATURES + MODEL_WALLET_FEATURES
@@ -81,6 +86,7 @@ def merge_features(df_scored: pd.DataFrame, df_wallet_agg: pd.DataFrame | None) 
         "question", "volume", "suspicion_score",
         "surprise_score", "late_move_ratio", "price_volatility",
         "max_single_move", "total_price_move",
+        "price_momentum_6h", "price_momentum_12h",
     ]
     df_price = df_scored[[c for c in price_cols if c in df_scored.columns]].copy()
 
@@ -93,6 +99,8 @@ def merge_features(df_scored: pd.DataFrame, df_wallet_agg: pd.DataFrame | None) 
         numeric_cols = [
             "burst_score", "order_flow_imbalance", "directional_consensus",
             "new_wallet_ratio", "new_wallet_ratio_6h",
+            "wallet_concentration", "wallet_age_median_days",
+            "cross_market_wallet_flag",
             "total_volume", "trade_count", "unique_wallets",
         ]
         for col in numeric_cols:
@@ -102,6 +110,8 @@ def merge_features(df_scored: pd.DataFrame, df_wallet_agg: pd.DataFrame | None) 
     wallet_cols = [
         "question", "new_wallet_ratio", "new_wallet_ratio_6h",
         "burst_score", "directional_consensus", "order_flow_imbalance",
+        "wallet_concentration", "wallet_age_median_days",
+        "cross_market_wallet_flag",
     ]
     df_combined = df_price.merge(
         df_wallet[[c for c in wallet_cols if c in df_wallet.columns]]
@@ -130,9 +140,9 @@ def _normalize_0_1(arr: np.ndarray) -> np.ndarray:
 
 
 def _impute_wallet_features(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
-    """Fill wallet feature NaNs with column medians. Returns (df, log_msgs)."""
+    """Fill NaNs for all model features with column medians. Returns (df, log_msgs)."""
     imputed = []
-    for col in MODEL_WALLET_FEATURES:
+    for col in MODEL_FEATURES:
         if col not in df.columns:
             df[col] = np.nan
         if df[col].isna().any():
@@ -198,7 +208,10 @@ def train_classifier(
 
     df = df_combined.copy()
 
-    # ── Step 1: Impute wallet feature NaNs ────────────────────────────────
+    # ── Step 1: Ensure all expected feature columns exist, then impute ───
+    for feat in features:
+        if feat not in df.columns:
+            df[feat] = np.nan
     df, imputed_cols = _impute_wallet_features(df)
     if imputed_cols:
         print(f"  Imputed NaNs:      {', '.join(imputed_cols)}")
