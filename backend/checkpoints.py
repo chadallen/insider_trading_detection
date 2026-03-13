@@ -23,10 +23,15 @@ def save(name: str, data) -> None:
 def load(name: str):
     p = _path(name)
     if os.path.exists(p):
-        with open(p, "rb") as f:
-            data = pickle.load(f)
-        print(f"  Loaded {name}")
-        return data
+        try:
+            with open(p, "rb") as f:
+                data = pickle.load(f)
+            print(f"  Loaded {name}")
+            return data
+        except Exception as e:
+            msg = str(e)[:120].replace("\n", " ")
+            print(f"  Failed to load {name} pickle ({msg}…) — will be recomputed")
+            return None
     print(f"  Not found: {name} — will be computed")
     return None
 

@@ -6,7 +6,7 @@ Run modes:
   python run.py                    Full pipeline (fetch + score + classify)
   python run.py --skip-fetch       Use cached markets/histories, re-run scoring
   python run.py --skip-dune        Price pipeline only — no Dune credits spent
-  python run.py --classifier-only  Retrain RF on saved df_combined (fastest, 0 credits)
+  python run.py --classifier-only  Retrain ensemble on saved df_combined (fastest, 0 credits)
   python run.py --push             Push output CSVs to GitHub after running
   python run.py --live             POC: score open markets ending within --hours-ahead hours
 
@@ -101,7 +101,7 @@ def main():
     from backend.pipeline.fetcher import fetch_markets, fetch_price_histories, fetch_live_markets
     from backend.pipeline.price_features import build_price_features, score_with_isolation_forest
     from backend.pipeline.wallet_features import fetch_top_n_wallet_data
-    from backend.pipeline.scorer import merge_features, train_classifier, RF_FEATURES, RF_WALLET_FEATURES
+    from backend.pipeline.scorer import merge_features, train_classifier
     from backend.config import TOP_N_MARKETS
 
     top_n = args.top_n or TOP_N_MARKETS
@@ -121,7 +121,7 @@ def main():
             sys.exit(1)
 
         _preflight(df_combined)
-        print("\n=== Training RF classifier ===")
+        print("\n=== Training ensemble classifier (PU-LightGBM + IsoForest + OC-SVM) ===")
         df_combined, rf_model, rf_scaler, _ = train_classifier(
             df_combined, n_neg=args.n_neg
         )
@@ -180,7 +180,7 @@ def main():
 
     # ── Train classifier ──────────────────────────────────────────────────
     _preflight(df_combined)
-    print("\n=== Training RF classifier ===")
+    print("\n=== Training ensemble classifier (PU-LightGBM + IsoForest + OC-SVM) ===")
     df_combined, rf_model, rf_scaler, _ = train_classifier(df_combined, n_neg=args.n_neg)
     cp.save("df_combined", df_combined)
 
@@ -255,7 +255,7 @@ def _run_live(args, cp, build_price_features, score_with_isolation_forest,
         df_for_training = df_combined
 
     _preflight(df_for_training)
-    print("\n=== Training RF classifier ===")
+    print("\n=== Training ensemble classifier (PU-LightGBM + IsoForest + OC-SVM) ===")
     df_for_training, _, _, _ = train_classifier(df_for_training, n_neg=args.n_neg)
 
     # Extract scores for only the live markets
@@ -298,14 +298,14 @@ def _run_live(args, cp, build_price_features, score_with_isolation_forest,
 
 
 def _preflight(df_combined):
-    """Print NaN counts per RF feature so you can see what's populated before training."""
-    from backend.pipeline.scorer import RF_FEATURES, RF_WALLET_FEATURES
+    """Print NaN counts per model feature so you can see what's populated before training."""
+    from backend.pipeline.scorer import MODEL_FEATURES, MODEL_WALLET_FEATURES
     print("\n=== Pre-flight: feature NaN counts ===")
-    for feat in RF_FEATURES:
+    for feat in MODEL_FEATURES:
         if feat in df_combined.columns:
             n_null = df_combined[feat].isna().sum()
             n_ok   = df_combined[feat].notna().sum()
-            tag    = " <- needs wallet query" if n_null > 0 and feat in RF_WALLET_FEATURES else ""
+            tag    = " <- needs wallet query" if n_null > 0 and feat in MODEL_WALLET_FEATURES else ""
             print(f"  {feat:<25} {n_ok:>4} present  {n_null:>4} NaN{tag}")
         else:
             print(f"  {feat:<25}  MISSING COLUMN — check scorer.py")

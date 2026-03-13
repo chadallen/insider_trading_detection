@@ -2,5 +2,6 @@ requests
 pandas
 numpy
 scikit-learn
+lightgbm
 PyGithub
 python-dotenv

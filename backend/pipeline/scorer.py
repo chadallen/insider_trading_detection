@@ -1,21 +1,34 @@
 """
-Merges price + wallet features and trains the Random Forest classifier.
-Corresponds to notebook Cells 12 and 13.
+Merges price + wallet features and trains the Phase 3 ensemble classifier.
+
+Phase 3 model architecture:
+  1. PU Learning     — LightGBM (two-step Elkan & Noto)
+  2. Unified ISO     — IsolationForest on merged feature matrix
+  3. One-Class SVM   — trained only on CONFIRMED labeled cases
+  4. Ensemble        — 0.5 × pu_prob + 0.3 × iso_score + 0.2 × ocsvm_score
+
+The price-only IsolationForest in price_features.py is still used upstream to
+select which markets get Dune wallet queries (suspicion_score). The unified
+IsolationForest here runs after merge_features() on all 9 features.
+
+Soft label weights (CONFIRMED=1.0 / SUSPECTED=0.6 / POSSIBLE=0.3) are applied
+as sample_weight in LightGBM training. The PU prior c is estimated from the
+average model confidence on labeled positives after fitting.
 """
+from __future__ import annotations
+
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
+import lightgbm as lgb
+from sklearn.ensemble import IsolationForest
+from sklearn.svm import OneClassSVM
 from sklearn.preprocessing import StandardScaler
 from backend.pipeline.wallet_features import load_labeled_cases, question_matches_filter
 
 
-# ── RF configuration ──────────────────────────────────────────────────────
+# ── Feature lists ─────────────────────────────────────────────────────────
 
-# Features fed to the RF. All come from the unified feature matrix built by
-# merge_features(). Wallet features are NaN for markets outside the top-N
-# wallet query and are imputed with column medians before training/scoring.
-
-RF_PRICE_FEATURES = [
+MODEL_PRICE_FEATURES = [
     "surprise_score",
     "late_move_ratio",
     "price_volatility",
@@ -23,20 +36,35 @@ RF_PRICE_FEATURES = [
     "total_price_move",
 ]
 
-RF_WALLET_FEATURES = [
+MODEL_WALLET_FEATURES = [
     "new_wallet_ratio",
     "new_wallet_ratio_6h",
     "burst_score",
     "order_flow_imbalance",
 ]
 
-RF_FEATURES = RF_PRICE_FEATURES + RF_WALLET_FEATURES
+MODEL_FEATURES = MODEL_PRICE_FEATURES + MODEL_WALLET_FEATURES
 
-# Soft confidence weights by label type, used as sample_weight in RF training.
+# Backward-compat aliases (run.py imports RF_FEATURES, RF_WALLET_FEATURES)
+RF_FEATURES        = MODEL_FEATURES
+RF_PRICE_FEATURES  = MODEL_PRICE_FEATURES
+RF_WALLET_FEATURES = MODEL_WALLET_FEATURES
+
+# ── Label and ensemble configuration ──────────────────────────────────────
+
+# Soft confidence weights applied as sample_weight during LightGBM training.
 LABEL_WEIGHTS = {
     "CONFIRMED": 1.0,
     "SUSPECTED": 0.6,
     "POSSIBLE":  0.3,
+}
+
+# Ensemble component weights (must sum to 1.0).
+# Calibrated by label type; adjust after Phase 5 leave-one-out CV.
+ENSEMBLE_WEIGHTS = {
+    "pu":    0.5,   # PU-LightGBM probability (primary)
+    "iso":   0.3,   # Unified IsolationForest anomaly score
+    "ocsvm": 0.2,   # One-Class SVM similarity to CONFIRMED cases
 }
 
 
@@ -45,8 +73,9 @@ LABEL_WEIGHTS = {
 def merge_features(df_scored: pd.DataFrame, df_wallet_agg: pd.DataFrame | None) -> pd.DataFrame:
     """
     Merge price features and wallet features into a single DataFrame.
-    No intermediate scoring — the RF trains directly on raw features.
-    suspicion_score (IsolationForest output) is preserved for negative selection.
+    No intermediate scoring — the ensemble trains directly on raw features.
+    suspicion_score (price-only IsolationForest) is preserved; it was used
+    upstream to select markets for Dune wallet queries.
     """
     price_cols = [
         "question", "volume", "suspicion_score",
@@ -90,104 +119,117 @@ def merge_features(df_scored: pd.DataFrame, df_wallet_agg: pd.DataFrame | None) 
     return df_combined
 
 
-# ── Random Forest classifier ──────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────
+
+def _normalize_0_1(arr: np.ndarray) -> np.ndarray:
+    """Min-max normalize to [0, 1]. Returns 0.5 for constant arrays."""
+    lo, hi = arr.min(), arr.max()
+    if hi - lo < 1e-9:
+        return np.full_like(arr, 0.5, dtype=float)
+    return (arr - lo) / (hi - lo)
+
+
+def _impute_wallet_features(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
+    """Fill wallet feature NaNs with column medians. Returns (df, log_msgs)."""
+    imputed = []
+    for col in MODEL_WALLET_FEATURES:
+        if col not in df.columns:
+            df[col] = np.nan
+        if df[col].isna().any():
+            fill = df[col].median()
+            fill = fill if pd.notna(fill) else 0.0
+            df[col] = df[col].fillna(fill)
+            imputed.append(f"{col}→{fill:.3f}")
+    return df, imputed
+
+
+def _label_positives(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Tag each row with label_weight and is_confirmed from labeled_cases.csv.
+    is_positive: any matched case (weight > 0).
+    is_confirmed: matched a CONFIRMED case (weight == 1.0).
+    """
+    labeled_df = load_labeled_cases()
+
+    def _weight(question: str) -> tuple[float, bool]:
+        best_w, best_confirmed = 0.0, False
+        for _, case in labeled_df.iterrows():
+            if question_matches_filter(question, case["question_filter"]):
+                w = LABEL_WEIGHTS.get(case["label"], 0.0)
+                if w > best_w:
+                    best_w = w
+                    best_confirmed = (case["label"] == "CONFIRMED")
+        return best_w, best_confirmed
+
+    weights_confirmed = df["question"].apply(_weight)
+    df["label_weight"]  = [x[0] for x in weights_confirmed]
+    df["is_confirmed"]  = [x[1] for x in weights_confirmed]
+    df["is_positive"]   = df["label_weight"] > 0
+    return df
+
+
+# ── Ensemble classifier ───────────────────────────────────────────────────
 
 def train_classifier(
     df_combined: pd.DataFrame,
     features: list[str] | None = None,
-    n_neg: int = 30,
+    n_neg: int = 30,       # unused in PU learning; kept for API compatibility
 ) -> tuple[pd.DataFrame, object, object, list[str]]:
     """
-    Train Random Forest on df_combined.
-    Returns (df_with_probs, model, scaler, active_features).
+    Train the Phase 3 ensemble on df_combined.
+    Returns (df_with_probs, model_bundle, scaler, active_features).
 
-    Positives are drawn from labeled_cases.csv (CONFIRMED / SUSPECTED / POSSIBLE)
-    with soft sample weights (1.0 / 0.6 / 0.3). No POSITIVE_KEYWORDS — the CSV
-    is the single source of truth.
+    model_bundle = {"lgbm": ..., "iso": ..., "ocsvm": ..., "c": float}
 
-    Negatives are the bottom n_neg markets by suspicion_score (IsolationForest
-    anomaly output) that are not labeled positives.
+    Positives are all cases in labeled_cases.csv with soft sample weights.
+    Unlabeled markets (all others) are class 0 in PU training — they are NOT
+    assumed to be clean negatives.
 
-    Wallet feature NaNs are imputed with column medians so every market can
-    participate in training and scoring.
+    Two-step Elkan & Noto adjustment:
+      raw_prob = lgbm.predict_proba(X)[:, 1]
+      c        = mean(raw_prob[positives])        # P(labeled | positive)
+      pu_prob  = clip(raw_prob / c, 0, 1)
+
+    Ensemble:
+      insider_trading_prob = 0.5 * pu_prob + 0.3 * iso_score + 0.2 * ocsvm_score
     """
     if features is None:
-        features = RF_FEATURES
+        features = MODEL_FEATURES
 
     df = df_combined.copy()
 
-    # ── Step 1: Impute wallet feature NaNs with column median ─────────────
-    imputed_cols = []
-    for col in RF_WALLET_FEATURES:
-        if col not in df.columns:
-            df[col] = np.nan
-        if df[col].isna().any():
-            median_val = df[col].median()
-            fill_val   = median_val if pd.notna(median_val) else 0.0
-            df[col]    = df[col].fillna(fill_val)
-            imputed_cols.append(f"{col}→{fill_val:.3f}")
+    # ── Step 1: Impute wallet feature NaNs ────────────────────────────────
+    df, imputed_cols = _impute_wallet_features(df)
     if imputed_cols:
         print(f"  Imputed NaNs:      {', '.join(imputed_cols)}")
     else:
         print("  Imputed NaNs:      none (all wallet features present)")
 
     # ── Step 2: Label positives from labeled_cases.csv ────────────────────
-    labeled_df = load_labeled_cases()
+    df = _label_positives(df)
 
-    def _get_weight(question: str) -> float:
-        best = 0.0
-        for _, case in labeled_df.iterrows():
-            if question_matches_filter(question, case["question_filter"]):
-                best = max(best, LABEL_WEIGHTS.get(case["label"], 0.0))
-        return best
-
-    df["label_weight"] = df["question"].apply(_get_weight)
-    df["is_positive"]  = df["label_weight"] > 0
-
-    n_pos = df["is_positive"].sum()
-    print(f"  Positives matched: {n_pos}")
+    n_pos       = df["is_positive"].sum()
+    n_confirmed = df["is_confirmed"].sum()
+    print(f"  Positives matched: {n_pos} ({n_confirmed} CONFIRMED)")
     if n_pos > 0:
         for _, row in df[df["is_positive"]].iterrows():
-            print(f"    + [{row['label_weight']:.1f}] {str(row['question'])[:80]}")
+            tag = " [CONFIRMED]" if row["is_confirmed"] else ""
+            print(f"    + [{row['label_weight']:.1f}] {str(row['question'])[:80]}{tag}")
     else:
         print("  WARNING: No labeled cases matched markets in df_combined.")
         print("  Check that labeled_cases.csv question_filters match current market questions.")
         df["insider_trading_prob"] = np.nan
         return df, None, None, features
 
-    # ── Step 3: Label negatives ───────────────────────────────────────────
-    rank_col = "suspicion_score" if "suspicion_score" in df.columns else df[features].sum(axis=1).name
-    n_neg = min(n_neg, len(df) - n_pos)
-    neg_idx = (
-        df[~df["is_positive"]]
-        .dropna(subset=features)
-        .nsmallest(n_neg, rank_col)
-        .index
-    )
-    df["is_negative"] = False
-    df.loc[neg_idx, "is_negative"] = True
-    print(f"  Negatives used:    {len(neg_idx)} (bottom {n_neg} by {rank_col})")
-
-    # ── Step 4: Build training set ────────────────────────────────────────
-    df_train = df[df["is_positive"] | df["is_negative"]].dropna(subset=features).copy()
-    X_train  = df_train[features].values
-    y_train  = df_train["is_positive"].astype(int).values
-    # Soft weights: positives weighted by label confidence, negatives all 1.0
-    sample_weights = np.where(
-        y_train == 1,
-        df_train["label_weight"].values,
-        1.0,
-    )
-    print(f"  Training set:      {y_train.sum()} pos | {(y_train == 0).sum()} neg | {len(df_train)} total")
-
-    # ── Step 5: Drop zero-variance features ──────────────────────────────
+    # ── Step 3: Drop zero-variance features ───────────────────────────────
     print(f"\n  {'Feature':<25} {'Std':>7}  {'Min':>7}  {'Max':>7}")
     print("  " + "─" * 50)
     active_features = []
+    df_feat = df.dropna(subset=features)
     for feat in features:
-        col_vals = df_train[feat]
-        std = col_vals.std()
-        mn, mx = col_vals.min(), col_vals.max()
+        vals = df_feat[feat]
+        std  = vals.std()
+        mn, mx = vals.min(), vals.max()
         if std < 1e-6:
             print(f"  {feat:<25} {std:>7.4f}  {mn:>7.4f}  {mx:>7.4f}  ZERO VARIANCE — dropping")
         else:
@@ -203,42 +245,113 @@ def train_classifier(
         dropped = set(features) - set(active_features)
         print(f"\n  Dropped {len(dropped)} zero-variance feature(s): {dropped}")
 
-    # ── Step 6: Train ─────────────────────────────────────────────────────
-    scaler   = StandardScaler()
-    X_scaled = scaler.fit_transform(df_train[active_features].values)
-    rf = RandomForestClassifier(
-        n_estimators=200, class_weight="balanced",
-        max_depth=4, min_samples_leaf=2, random_state=42,
-    )
-    rf.fit(X_scaled, y_train, sample_weight=sample_weights)
-
-    # ── Step 7: Score all markets ─────────────────────────────────────────
+    # ── Step 4: Scale all markets ─────────────────────────────────────────
     df_scoreable = df.dropna(subset=active_features).copy()
-    X_all = scaler.transform(df_scoreable[active_features].values)
-    df_scoreable["insider_trading_prob"] = rf.predict_proba(X_all)[:, 1]
+    scaler   = StandardScaler()
+    X_scaled = scaler.fit_transform(df_scoreable[active_features].values)
+    # Named DataFrame for LightGBM (preserves feature names across fit/predict)
+    X_lgbm   = pd.DataFrame(X_scaled, columns=active_features)
+    X_all    = X_scaled   # numpy array for IsolationForest / OC-SVM
+    pos_mask = df_scoreable["is_positive"].values
+    confirmed_mask = df_scoreable["is_confirmed"].values
 
-    if "insider_trading_prob" in df.columns:
-        df = df.drop(columns=["insider_trading_prob"])
-    df = df.join(df_scoreable[["insider_trading_prob"]], how="left")
+    # ── Step 5: PU Learning — LightGBM (two-step Elkan & Noto) ───────────
+    print("\n  [1/3] PU Learning — LightGBM")
+    y = pos_mask.astype(int)
+    sample_weights = np.where(
+        pos_mask,
+        df_scoreable["label_weight"].values,
+        1.0,
+    )
 
-    # Print feature importances
-    print("\nFeature importances:")
-    for feat, imp in sorted(zip(active_features, rf.feature_importances_), key=lambda x: -x[1]):
-        bar = "█" * int(imp * 40)
-        print(f"  {feat:<25} {bar} {imp:.3f}")
+    lgbm_model = lgb.LGBMClassifier(
+        n_estimators=200,
+        learning_rate=0.05,
+        max_depth=3,
+        num_leaves=7,
+        reg_alpha=1.0,
+        reg_lambda=1.0,
+        min_child_samples=1,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        class_weight="balanced",
+        random_state=42,
+        verbose=-1,
+    )
+    lgbm_model.fit(X_lgbm, y, sample_weight=sample_weights)
 
-    # Top 15
+    raw_pu = lgbm_model.predict_proba(X_lgbm)[:, 1]
+
+    # Estimate c = P(labeled | positive) from positives' predicted probabilities
+    c = float(raw_pu[pos_mask].mean()) if pos_mask.sum() > 0 else 1.0
+    c = max(c, 0.01)   # guard against division by near-zero
+    pu_prob = np.clip(raw_pu / c, 0.0, 1.0)
+    df_scoreable["pu_prob"] = pu_prob
+    print(f"     {pos_mask.sum()} positives | {(~pos_mask).sum()} unlabeled | c={c:.3f}")
+
+    # ── Step 6: Unified IsolationForest ───────────────────────────────────
+    print("  [2/3] Unified IsolationForest")
+    iso = IsolationForest(contamination=0.1, random_state=42)
+    iso.fit(X_all)
+    iso_score = _normalize_0_1(-iso.decision_function(X_all))
+    df_scoreable["iso_score"] = iso_score
+
+    # ── Step 7: One-Class SVM (CONFIRMED cases only) ──────────────────────
+    print("  [3/3] One-Class SVM")
+    ocsvm_score = np.full(len(df_scoreable), 0.5)   # neutral default
+    ocsvm = None
+    if confirmed_mask.sum() >= 3:
+        ocsvm = OneClassSVM(nu=0.5, kernel="rbf", gamma="scale")
+        ocsvm.fit(X_all[confirmed_mask])
+        ocsvm_raw   = ocsvm.decision_function(X_all)
+        ocsvm_score = _normalize_0_1(ocsvm_raw)
+        print(f"     Trained on {confirmed_mask.sum()} CONFIRMED cases")
+    else:
+        print(f"     Only {confirmed_mask.sum()} CONFIRMED case(s) matched — skipping "
+              f"(need ≥ 3); using neutral 0.5 for ocsvm_score")
+    df_scoreable["ocsvm_score"] = ocsvm_score
+
+    # ── Step 8: Ensemble ──────────────────────────────────────────────────
+    w = ENSEMBLE_WEIGHTS
+    df_scoreable["insider_trading_prob"] = np.clip(
+        w["pu"]    * df_scoreable["pu_prob"]    +
+        w["iso"]   * df_scoreable["iso_score"]  +
+        w["ocsvm"] * df_scoreable["ocsvm_score"],
+        0.0, 1.0,
+    )
+
+    # ── Merge scores back into df ─────────────────────────────────────────
+    score_cols = ["pu_prob", "iso_score", "ocsvm_score", "insider_trading_prob"]
+    for col in score_cols:
+        if col in df.columns:
+            df = df.drop(columns=[col])
+    df = df.join(df_scoreable[score_cols], how="left")
+
+    # ── Diagnostics ───────────────────────────────────────────────────────
+    print("\nLightGBM feature importances (gain):")
+    importances = lgbm_model.feature_importances_
+    for feat, imp in sorted(zip(active_features, importances), key=lambda x: -x[1]):
+        bar = "█" * max(1, int(imp / max(importances) * 30))
+        print(f"  {feat:<25} {bar} {imp:.1f}")
+
     print("\nTop 15 by insider_trading_prob:")
     top = (
         df[df["insider_trading_prob"].notna()]
         .nlargest(15, "insider_trading_prob")
-        [["question", "insider_trading_prob", "suspicion_score"]]
+        [["question", "insider_trading_prob", "pu_prob", "iso_score", "ocsvm_score", "suspicion_score"]]
         .reset_index(drop=True)
     )
     top.index += 1
-    print(top.to_string())
+    with pd.option_context("display.max_colwidth", 60):
+        print(top.to_string())
 
     n_scored = df["insider_trading_prob"].notna().sum()
     print(f"\nScored {n_scored}/{len(df)} markets")
 
-    return df, rf, scaler, active_features
+    model_bundle = {
+        "lgbm":  lgbm_model,
+        "iso":   iso,
+        "ocsvm": ocsvm,
+        "c":     c,
+    }
+    return df, model_bundle, scaler, active_features
