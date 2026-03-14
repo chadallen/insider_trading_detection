@@ -176,37 +176,44 @@ def main():
     if not args.skip_dune:
         print(f"\n=== Top-{top_n} wallet query from Dune (~4 credits) ===")
         df_wallet_agg = fetch_top_n_wallet_data(df_scored, df_markets, top_n=top_n)
-
-        if df_wallet_agg is not None and not df_wallet_agg.empty:
-            # Wallet age via Polygonscan (free, no extra Dune credits)
-            print("\n=== Wallet age lookup via Polygonscan ===")
-            df_wallet_agg = fetch_wallet_age_features(
-                df_wallet_agg, polygonscan_api_key=POLYGONSCAN_API_KEY
-            )
-
-            # Cross-market wallet overlap (local — no Dune credits)
-            # Uses top_wallet_addresses already fetched; covers top-N wallets only.
-            # See wallet_features.py compute_cross_market_wallet_flags() for details.
-            print("\n=== Cross-market wallet flag (local computation) ===")
-            df_cross = compute_cross_market_wallet_flags(df_wallet_agg)
-            if not df_cross.empty:
-                df_wallet_agg = df_wallet_agg.merge(
-                    df_cross[["question", "cross_market_wallet_count"]],
-                    on="question",
-                    how="left",
-                )
-                df_wallet_agg["cross_market_wallet_flag"] = (
-                    pd.to_numeric(
-                        df_wallet_agg.get("cross_market_wallet_count", 0),
-                        errors="coerce",
-                    ).fillna(0)
-                )
-
-        cp.save("df_wallet_agg", df_wallet_agg)
     else:
-        print("\n=== Skipping wallet query (--skip-dune) ===")
+        print("\n=== Skipping Dune wallet query (--skip-dune) ===")
         if df_wallet_agg is not None:
             print(f"  Using cached df_wallet_agg ({len(df_wallet_agg)} markets)")
+
+    # ── Polygonscan + cross-market flag (free, runs on cached or fresh wallet data) ──
+    if df_wallet_agg is not None and not df_wallet_agg.empty:
+        # Wallet age via Polygonscan (free, no extra Dune credits)
+        print("\n=== Wallet age lookup via Polygonscan ===")
+        df_wallet_agg = fetch_wallet_age_features(
+            df_wallet_agg, polygonscan_api_key=POLYGONSCAN_API_KEY
+        )
+
+        # Cross-market wallet overlap (local — no Dune credits)
+        # Uses top_wallet_addresses already fetched; covers top-N wallets only.
+        # See wallet_features.py compute_cross_market_wallet_flags() for details.
+        print("\n=== Cross-market wallet flag (local computation) ===")
+        df_cross = compute_cross_market_wallet_flags(df_wallet_agg)
+        if not df_cross.empty:
+            # Drop stale columns before merge to avoid _x/_y suffix conflicts
+            # when re-running against a cached df_wallet_agg pickle
+            df_wallet_agg = df_wallet_agg.drop(
+                columns=[c for c in ("cross_market_wallet_count", "cross_market_wallet_flag")
+                         if c in df_wallet_agg.columns]
+            )
+            df_wallet_agg = df_wallet_agg.merge(
+                df_cross[["question", "cross_market_wallet_count"]],
+                on="question",
+                how="left",
+            )
+            df_wallet_agg["cross_market_wallet_flag"] = (
+                pd.to_numeric(
+                    df_wallet_agg["cross_market_wallet_count"],
+                    errors="coerce",
+                ).fillna(0)
+            )
+
+    cp.save("df_wallet_agg", df_wallet_agg)
 
     # ── Merge features ────────────────────────────────────────────────────
     print("\n=== Merging features ===")

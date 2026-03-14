@@ -10,28 +10,28 @@ wallet behavior in resolved political prediction markets.
 
 **Phases 1, 2, and 3 of the refactor are complete.** The pipeline runs
 end-to-end with the new ensemble model (PU-LightGBM + IsolationForest +
-One-Class SVM). A full run with real Dune data produced results across 77
-markets. Phase 4 (new data sources, primarily GDELT) is next.
+One-Class SVM). Polygonscan wallet age lookup is working (166/166 resolved).
+A full run costs ~5 Dune credits (down from ~8). Phase 4 (GDELT) is next.
 
-### Architecture Decision: cross_market_wallet_flag (2026-03-13)
+**Top suspects in current dataset (14 markets with price history):**
+1. US strikes Iran by January 14, 2026 — prob 0.90
+2. US strikes Iran by February 13, 2026 — prob 0.79
+3. US strikes Iran by February 28, 2026 — prob 0.73
 
-`cross_market_wallet_flag` is now computed **locally** from `top_wallet_addresses`
-already fetched by the main Dune wallet query. The original Dune-based query
-(`fetch_cross_market_wallet_flags`) was disabled because it consistently hit the
-10-credit per-query resource cap (`FAILED_TYPE_RESOURCES_CAP_REACHED`).
+### Architecture Decisions (2026-03-13)
 
-**Tradeoff:** The local approach only covers the top-N wallets per market (top 20),
-not the full trader population. Concentrated insiders (large bets) are likely
-captured; distributed/layered trading across many small wallets may be missed.
+**`cross_market_wallet_flag` — local computation:**
+Computed locally from `top_wallet_addresses` already fetched by the main Dune
+wallet query. The original Dune-based query was disabled because it consistently
+hit the 10-credit per-query resource cap (`FAILED_TYPE_RESOURCES_CAP_REACHED`).
+Tradeoff: covers top-N wallets per market only (top 20), not full population.
+To re-enable: raise `DUNE_MAX_CREDITS` and uncomment `fetch_cross_market_wallet_flags()`
+in `backend/pipeline/wallet_features.py`, update `run.py` to call it instead.
 
-**To re-enable the Dune query:** Raise `DUNE_MAX_CREDITS` and uncomment
-`fetch_cross_market_wallet_flags()` in `backend/pipeline/wallet_features.py`,
-then update `run.py` to call it instead of `compute_cross_market_wallet_flags()`.
-
-**Top suspects in current dataset (77 markets):**
-1. Maduro out by Jan 31, 2026 — prob 0.70
-2. Government shutdown end Nov 12 — prob 0.69
-3. Khamenei out by Feb 28 — prob 0.68
+**`wallet_age_median_days` — Polygonscan V2 API:**
+Uses `https://api.etherscan.io/v2/api?chainid=137` (Polygon PoS). Falls back
+from `txlist` to `tokentx` action if a wallet has no native transactions
+(common for pure ERC-20 traders). Requires `POLYGONSCAN_API_KEY` in `.env`.
 
 ---
 
@@ -80,13 +80,13 @@ dashboard/                    # React frontend (Vite + Tailwind + Recharts)
                score_with_isolation_forest() → adds suspicion_score (price-only,
                used to rank markets for Dune wallet queries)
 
-3. WALLET      fetch_top_n_wallet_data(top_n=50) → df_wallet_agg (~4 credits)
+3. WALLET      fetch_top_n_wallet_data(top_n=50) → df_wallet_agg (~5 credits)
    FEATURES    Dune table: polymarket_polygon.market_trades
                Features: new_wallet_ratio, new_wallet_ratio_6h, burst_score,
                order_flow_imbalance, wallet_concentration  ← Phase 2 (Gini)
                top_wallet_addresses (top 20 wallets, used for Polygonscan)
-               fetch_wallet_age_features() → wallet_age_median_days  ← Phase 2
-               fetch_cross_market_wallet_flags() → cross_market_wallet_flag  ← Phase 2
+               fetch_wallet_age_features() via Polygonscan V2 → wallet_age_median_days
+               compute_cross_market_wallet_flags() (local, no Dune) → cross_market_wallet_flag
 
 4. MERGE       merge_features() → df_combined (14 features total)
                No intermediate heuristic scoring — classifier sees raw features
@@ -108,9 +108,10 @@ dashboard/                    # React frontend (Vite + Tailwind + Recharts)
 
 | Command | Credits | Time | Use |
 |---------|---------|------|-----|
-| `python run.py` | ~8 | ~25 min | Full refresh |
-| `python run.py --skip-fetch` | ~5 | ~5 min | Rescore with cached markets |
-| `python run.py --skip-dune` | 0 | ~10 min | Price signals only |
+| `python run.py` | ~5 | ~25 min | Full refresh |
+| `python run.py --skip-fetch` | ~5 | ~10 min | Rescore with cached markets, fresh Dune + Polygonscan |
+| `python run.py --skip-fetch --skip-dune` | 0 | ~2 min | Rescore with all cached data, fresh Polygonscan only |
+| `python run.py --skip-dune` | 0 | ~10 min | Price signals only, no wallet data |
 | `python run.py --classifier-only` | 0 | ~5 sec | Retrain ensemble after label edits |
 | `python run.py --classifier-only --push` | 0 | ~1 min | Update live dashboard |
 | `python run.py --live --hours-ahead 48` | ~4 | ~5 min | POC: score open markets |
