@@ -9,6 +9,7 @@
 body {
   margin: 0;
   font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+  background-color: #f7f3ed;
 }
 
 ::-webkit-scrollbar {
@@ -16,12 +17,12 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #111827;
+  background: #ede8e0;
 }
 ::-webkit-scrollbar-thumb {
-  background: #374151;
+  background: #bdb5ab;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #4b5563;
+  background: #a09890;
 }
