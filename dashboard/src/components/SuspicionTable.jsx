@@ -1,28 +1,32 @@
-const level = (score) =>
-  score >= 0.35 ? 'high' : score >= 0.25 ? 'medium' : 'low'
+// primary score: insider_trading_prob (Phase 3+), fall back to combined_score (legacy)
+const getScore = (row) => row.insider_trading_prob ?? row.combined_score ?? 0
+const level = (row) => {
+  const s = getScore(row)
+  return s >= 0.35 ? 'high' : s >= 0.25 ? 'medium' : 'low'
+}
 
 const BORDER = {
-  high:   'border-l-4 border-red-500',
-  medium: 'border-l-4 border-yellow-400',
-  low:    'border-l-4 border-green-700',
+  high:   'border-l-4 border-red-700',
+  medium: 'border-l-4 border-amber-600',
+  low:    'border-l-4 border-emerald-700',
 }
 
 const BG = {
-  high:   { closed: 'bg-red-950/20    hover:bg-red-950/35',   open: 'bg-red-950/35'    },
-  medium: { closed: 'bg-yellow-950/10 hover:bg-yellow-950/25', open: 'bg-yellow-950/25' },
-  low:    { closed: 'bg-transparent   hover:bg-gray-800/25',   open: 'bg-gray-800/25'   },
+  high:   { closed: 'bg-red-50    hover:bg-red-100',    open: 'bg-red-100'    },
+  medium: { closed: 'bg-amber-50  hover:bg-amber-100',  open: 'bg-amber-100'  },
+  low:    { closed: 'bg-transparent hover:bg-stone-100', open: 'bg-stone-100'  },
 }
 
 const BADGE = {
-  high:   'bg-red-500/20    text-red-400    ring-1 ring-red-500/40',
-  medium: 'bg-yellow-500/20 text-yellow-400 ring-1 ring-yellow-500/40',
-  low:    'bg-green-500/20  text-green-400  ring-1 ring-green-600/40',
+  high:   'border border-red-700   text-red-800   bg-red-50',
+  medium: 'border border-amber-700 text-amber-900 bg-amber-50',
+  low:    'border border-emerald-700 text-emerald-900 bg-emerald-50',
 }
 
 const SCORE_COLOR = {
-  high:   'text-red-400',
-  medium: 'text-yellow-400',
-  low:    'text-green-400',
+  high:   'text-red-800',
+  medium: 'text-amber-900',
+  low:    'text-emerald-800',
 }
 
 // ── formatting helpers ───────────────────────────────────────────────────────
@@ -43,24 +47,24 @@ const fmtDate = (s) => {
 // ── sub-components ───────────────────────────────────────────────────────────
 function ScoreBar({ value, colorClass }) {
   if (value == null || isNaN(value)) {
-    return <span className="tabular-nums text-gray-600 text-xs w-12 text-right">—</span>
+    return <span className="tabular-nums text-stone-400 text-xs w-12 text-right">—</span>
   }
   const pct = Math.max(0, Math.min(1, value)) * 100
   return (
     <div className="flex items-center gap-2 justify-end">
-      <div className="w-14 h-1.5 bg-gray-800 rounded-full overflow-hidden shrink-0">
+      <div className="w-14 h-1.5 bg-stone-200 rounded-full overflow-hidden shrink-0">
         <div className={`h-full rounded-full ${colorClass}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="tabular-nums text-gray-300 text-xs w-12 text-right">{value.toFixed(3)}</span>
+      <span className="tabular-nums text-stone-700 text-xs w-12 text-right">{value.toFixed(3)}</span>
     </div>
   )
 }
 
 function DetailRow({ label, value, highlight }) {
   return (
-    <div className="flex justify-between items-baseline gap-2 py-1.5 border-b border-gray-700/60 last:border-0">
-      <span className="text-gray-400 text-sm">{label}</span>
-      <span className={`text-sm tabular-nums font-semibold text-right ${highlight ? 'text-orange-300' : 'text-gray-100'}`}>
+    <div className="flex justify-between items-baseline gap-2 py-1.5 border-b border-stone-200 last:border-0">
+      <span className="text-stone-500 text-sm">{label}</span>
+      <span className={`text-sm tabular-nums font-semibold text-right ${highlight ? 'text-amber-700' : 'text-stone-900'}`}>
         {value}
       </span>
     </div>
@@ -70,7 +74,7 @@ function DetailRow({ label, value, highlight }) {
 function DetailSection({ title, children }) {
   return (
     <div>
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">{title}</p>
+      <p className="text-xs font-semibold text-stone-500 uppercase tracking-widest mb-2">{title}</p>
       {children}
     </div>
   )
@@ -88,9 +92,9 @@ function timeUntil(isoStr) {
 // ── main component ───────────────────────────────────────────────────────────
 export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowClick, selected, showProb = false }) {
   return (
-    <div className="divide-y divide-gray-800/40">
+    <div className="divide-y divide-stone-200">
       {/* Column headers — hidden on small screens */}
-      <div className="hidden sm:grid sm:grid-cols-[2rem_1fr_auto_auto_auto_auto_auto] gap-x-4 px-3 pb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">
+      <div className="hidden sm:grid sm:grid-cols-[2rem_1fr_auto_auto_auto_auto_auto] gap-x-4 px-3 pb-2 text-[10px] font-semibold text-stone-500 uppercase tracking-widest">
         <span>#</span>
         <span>Market Question</span>
         <span className="text-right">Price</span>
@@ -101,7 +105,7 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
       </div>
 
       {data.map((row, i) => {
-        const lvl = level(row.combined_score)
+        const lvl = level(row)
         const isOpen = selected?.question === row.question
         const s = scored[row.question]
         const w = wallet[row.question]
@@ -117,75 +121,73 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
             >
               {/* Desktop layout */}
               <div className="hidden sm:grid sm:grid-cols-[2rem_1fr_auto_auto_auto_auto_auto] gap-x-4 items-center">
-                <span className="text-gray-600 text-xs tabular-nums">{i + 1}</span>
-                <span className="text-gray-200 text-sm truncate pr-2">{row.question}</span>
+                <span className="text-stone-400 text-xs tabular-nums">{i + 1}</span>
+                <span className="text-stone-800 text-sm truncate pr-2">{row.question}</span>
                 <ScoreBar
-                  value={row.price_score}
-                  colorClass={row.price_score > 0.08 ? 'bg-orange-400' : 'bg-blue-500'}
+                  value={row.suspicion_score != null ? Math.max(0, Math.min(1, (row.suspicion_score + 0.5))) : null}
+                  colorClass="bg-stone-600"
                 />
                 <ScoreBar
-                  value={row.wallet_score}
-                  colorClass={row.wallet_score >= 0.6 ? 'bg-purple-400' : 'bg-indigo-500'}
+                  value={row.iso_score ?? row.wallet_score ?? null}
+                  colorClass="bg-stone-500"
                 />
                 <span className={`tabular-nums font-semibold text-sm text-right ${SCORE_COLOR[lvl]}`}>
-                  {row.combined_score.toFixed(4)}
+                  {getScore(row).toFixed(4)}
                 </span>
-                <span className="tabular-nums text-xs text-right text-gray-400">
-                  {row.insider_trading_prob != null ? row.insider_trading_prob.toFixed(3) : '—'}
+                <span className="tabular-nums text-xs text-right text-stone-500">
+                  {row.pu_prob != null ? row.pu_prob.toFixed(3) : '—'}
                 </span>
                 <div className="flex items-center justify-between gap-2">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold tracking-wide ${BADGE[lvl]}`}>
+                  <span className={`text-xs px-2 py-0.5 font-medium tracking-wide ${BADGE[lvl]}`}>
                     {lvl.toUpperCase()}
                   </span>
-                  <span className={`text-gray-500 text-xs transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>▾</span>
+                  <span className={`text-stone-400 text-xs transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>▾</span>
                 </div>
               </div>
 
               {/* Mobile layout */}
               <div className="sm:hidden flex items-start gap-3">
-                <span className="text-gray-600 text-xs tabular-nums mt-0.5 shrink-0 w-5">{i + 1}</span>
+                <span className="text-stone-400 text-xs tabular-nums mt-0.5 shrink-0 w-5">{i + 1}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-gray-200 text-sm leading-snug mb-1.5">{row.question}</p>
+                  <p className="text-stone-800 text-sm leading-snug mb-1.5">{row.question}</p>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold tracking-wide ${BADGE[lvl]}`}>
+                    <span className={`text-xs px-2 py-0.5 font-medium tracking-wide ${BADGE[lvl]}`}>
                       {lvl.toUpperCase()}
                     </span>
                     {showProb && until && (
-                      <span className="text-emerald-400 text-xs tabular-nums">{until}</span>
+                      <span className="text-emerald-700 text-xs tabular-nums">{until}</span>
                     )}
                     <span className={`tabular-nums font-semibold text-sm ${SCORE_COLOR[lvl]}`}>
-                      {showProb
-                        ? (row.insider_trading_prob != null ? row.insider_trading_prob.toFixed(3) : '—')
-                        : row.combined_score.toFixed(4)}
+                      {getScore(row).toFixed(4)}
                     </span>
                   </div>
                 </div>
-                <span className={`text-gray-500 text-sm mt-0.5 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>▾</span>
+                <span className={`text-stone-400 text-sm mt-0.5 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>▾</span>
               </div>
             </button>
 
             {/* ── Expanded detail panel ── */}
             {isOpen && (
-              <div className="px-4 pb-5 pt-3 bg-gray-900/60">
+              <div className="px-4 pb-5 pt-3 bg-stone-100">
                 {/* Score bars (mobile only — desktop already shows them in header) */}
                 <div className="sm:hidden mb-4 space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-500">Price Score</span>
-                    <ScoreBar value={row.price_score} colorClass={row.price_score > 0.08 ? 'bg-orange-400' : 'bg-blue-500'} />
+                    <span className="text-xs text-stone-500">Price Signal</span>
+                    <ScoreBar value={row.suspicion_score != null ? Math.max(0, Math.min(1, row.suspicion_score + 0.5)) : null} colorClass="bg-stone-600" />
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-500">Wallet Score</span>
-                    <ScoreBar value={row.wallet_score ?? 0} colorClass={(row.wallet_score ?? 0) >= 0.6 ? 'bg-purple-400' : 'bg-indigo-500'} />
+                    <span className="text-xs text-stone-500">Anomaly Score</span>
+                    <ScoreBar value={row.iso_score ?? null} colorClass="bg-stone-500" />
                   </div>
                 </div>
 
                 {/* RF probability — full-width summary row */}
                 {row.insider_trading_prob != null && (
-                  <div className="mb-4 flex items-center justify-between border border-gray-700/50 rounded-lg px-4 py-2.5 bg-gray-800/30">
-                    <span className="text-xs text-gray-400">RF Insider-Trading Probability</span>
-                    <span className="tabular-nums font-bold text-sm text-gray-200">
+                  <div className="mb-4 flex items-center justify-between border border-stone-300 px-4 py-2.5 bg-stone-50">
+                    <span className="text-xs text-stone-500">RF Insider-Trading Probability</span>
+                    <span className="tabular-nums font-bold text-sm text-stone-800">
                       {(row.insider_trading_prob * 100).toFixed(1)}%
-                      <span className="text-gray-600 font-normal text-xs ml-1">(model in training)</span>
+                      <span className="text-stone-400 font-normal text-xs ml-1">(model in training)</span>
                     </span>
                   </div>
                 )}
@@ -208,7 +210,7 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                     </DetailSection>
                   ) : (
                     <DetailSection title="Price Signals">
-                      <p className="text-gray-600 text-xs py-2">No price data available.</p>
+                      <p className="text-stone-400 text-xs py-2">No price data available.</p>
                     </DetailSection>
                   )}
 
@@ -229,7 +231,7 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                     </DetailSection>
                   ) : (
                     <DetailSection title="Wallet Signals">
-                      <p className="text-gray-600 text-xs py-2">No wallet data available.</p>
+                      <p className="text-stone-400 text-xs py-2">No wallet data available.</p>
                     </DetailSection>
                   )}
                 </div>

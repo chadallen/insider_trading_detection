@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "dashboard",
-      "runtimeExecutable": "/Users/chadallen/insider_trading_detection/.claude/worktrees/exciting-archimedes/.claude/start-dashboard.sh",
+      "runtimeExecutable": "/Users/chadallen/insider_trading_detection/.claude/worktrees/vibrant-noether/.claude/start-dashboard.sh",
       "runtimeArgs": [],
       "port": 5173
     }
