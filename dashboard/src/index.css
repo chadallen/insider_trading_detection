@@ -8,8 +8,10 @@
 
 body {
   margin: 0;
-  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
-  background-color: #f7f3ed;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background-color: #f9fafb;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 ::-webkit-scrollbar {
@@ -17,12 +19,12 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #ede8e0;
+  background: #f4f4f5;
 }
 ::-webkit-scrollbar-thumb {
-  background: #bdb5ab;
+  background: #d4d4d8;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #a09890;
+  background: #a1a1aa;
 }
