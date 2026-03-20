@@ -42,6 +42,42 @@ New Wallet Ratio, Wallet Age (median), Cross-Market Wallets.
 build settings. Auth token lives at
 `~/Library/Application Support/com.vercel.cli/auth.json`.
 
+### Dev Server Setup in Git Worktrees (2026-03-19)
+
+**Problem:** When working on the dashboard in a git worktree, two issues arise:
+
+1. **Port conflict** — Another worktree's preview server may already hold port 5173.
+   The `preview_start` tool will error with "Port 5173 is in use".
+
+2. **`vite` not found** — Worktrees don't have their own `node_modules/`.
+   The dashboard's `node_modules/` only lives in the main repo at
+   `insider_trading_detection/dashboard/node_modules/`.
+
+**Fix (do both steps):**
+
+1. Symlink node_modules into the worktree's dashboard directory:
+   ```bash
+   ln -sf /Users/chadallen/insider_trading_detection/dashboard/node_modules \
+     /Users/chadallen/insider_trading_detection/.claude/worktrees/<name>/dashboard/node_modules
+   ```
+
+2. Write `.claude/launch.json` in the worktree root using an explicit vite path
+   and a port that doesn't conflict (e.g. 5174):
+   ```json
+   {
+     "version": "0.0.1",
+     "configurations": [{
+       "name": "dashboard",
+       "runtimeExecutable": "/Users/chadallen/insider_trading_detection/dashboard/node_modules/.bin/vite",
+       "runtimeArgs": ["--port", "5174", "--config", "vite.config.js"],
+       "port": 5174,
+       "cwd": "/Users/chadallen/insider_trading_detection/.claude/worktrees/<name>/dashboard"
+     }]
+   }
+   ```
+
+Then call `preview_start` with name `"dashboard"`.
+
 ### Architecture Decisions (2026-03-13)
 
 **`cross_market_wallet_flag` — local computation:**

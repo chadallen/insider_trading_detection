@@ -3,9 +3,10 @@
   "configurations": [
     {
       "name": "dashboard",
-      "runtimeExecutable": "/Users/chadallen/insider_trading_detection/.claude/worktrees/vibrant-noether/.claude/start-dashboard.sh",
-      "runtimeArgs": [],
-      "port": 5173
+      "runtimeExecutable": "/Users/chadallen/insider_trading_detection/dashboard/node_modules/.bin/vite",
+      "runtimeArgs": ["--port", "5174", "--config", "vite.config.js"],
+      "port": 5174,
+      "cwd": "/Users/chadallen/insider_trading_detection/.claude/worktrees/nifty-mendel/dashboard"
     }
   ]
 }
