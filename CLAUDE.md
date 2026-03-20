@@ -13,10 +13,34 @@ end-to-end with the new ensemble model (PU-LightGBM + IsolationForest +
 One-Class SVM). Polygonscan wallet age lookup is working (166/166 resolved).
 A full run costs ~5 Dune credits (down from ~8). Phase 4 (GDELT) is next.
 
+**The dashboard is live on Vercel** at https://dashboard-rouge-pi-13.vercel.app
+(aliased from the `cgallen-1252s-projects/dashboard` Vercel project). Redeploy
+with `cd dashboard && vercel --prod --yes`. The Vercel project has `rootDirectory`
+set to `dashboard` via the Vercel API; `dashboard/vercel.json` holds the build config.
+
 **Top suspects in current dataset (14 markets with price history):**
 1. US strikes Iran by January 14, 2026 — prob 0.90
 2. US strikes Iran by February 13, 2026 — prob 0.79
 3. US strikes Iran by February 28, 2026 — prob 0.73
+
+### Architecture Decisions (2026-03-19)
+
+**Dashboard — research-oriented UI restyle:**
+The React dashboard was restyled from a dark "consumer app" aesthetic to a
+cream/stone research theme (`#f7f3ed` background, Tailwind stone/amber/emerald
+palette). All column headers and detail-panel labels now reflect Phase 3 output
+columns (`insider_trading_prob`, `iso_score`, `pu_prob`, `ocsvm_score`,
+`suspicion_score`). Removed: VPIN Score, Time-Weighted VPIN, Trade VPIN,
+Directional Consensus, Top-3 Wallet Volume, New Wallet Ratio 12h, First/Last
+Trade timestamps. Added: Momentum 6h, Momentum 12h, Order Flow Imbalance,
+New Wallet Ratio, Wallet Age (median), Cross-Market Wallets.
+
+**Vercel deployment — monorepo setup:**
+`rootDirectory` is set to `dashboard` on the Vercel project (configured via
+`PATCH /v9/projects/{id}` REST API — CLI flag `--root-dir` does not exist).
+`dashboard/vercel.json` must exist inside `rootDirectory` for Vercel to find
+build settings. Auth token lives at
+`~/Library/Application Support/com.vercel.cli/auth.json`.
 
 ### Architecture Decisions (2026-03-13)
 
@@ -55,12 +79,12 @@ data/
   *.pkl                       # Cached pipeline intermediates
 outputs/                      # CSV outputs (mirrored to dashboard/public/)
 dashboard/                    # React frontend (Vite + Tailwind + Recharts)
+  vercel.json                 # Vercel build config (must live inside rootDirectory)
   src/
     App.jsx
     components/
-      SuspicionTable.jsx
+      SuspicionTable.jsx      # Ranked table + inline expanded detail panel
       ScatterPlot.jsx
-      DetailPanel.jsx
   public/                     # CSVs read by dashboard at runtime
 ```
 
