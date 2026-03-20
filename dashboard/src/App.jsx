@@ -20,7 +20,6 @@ async function tryFetch(url) {
 export default function App() {
   const [tab, setTab] = useState('historical')
 
-  // Historical data
   const [data, setData]       = useState([])
   const [scored, setScored]   = useState({})
   const [wallet, setWallet]   = useState({})
@@ -28,14 +27,12 @@ export default function App() {
   const [error, setError]     = useState(null)
   const [selected, setSelected] = useState(null)
 
-  // Live data
-  const [liveData, setLiveData]       = useState(null)  // null = not loaded yet
+  const [liveData, setLiveData]       = useState(null)
   const [liveScored, setLiveScored]   = useState({})
   const [liveLoading, setLiveLoading] = useState(false)
   const [liveError, setLiveError]     = useState(null)
   const [liveSelected, setLiveSelected] = useState(null)
 
-  // Load historical on mount
   useEffect(() => {
     Promise.all([
       fetch('/df_combined.csv').then((r) => r.text()),
@@ -63,7 +60,6 @@ export default function App() {
       })
   }, [])
 
-  // Load live data when tab switches to 'live'
   useEffect(() => {
     if (tab !== 'live' || liveData !== null) return
     setLiveLoading(true)
@@ -80,7 +76,6 @@ export default function App() {
         (a, b) => (b.insider_trading_prob ?? b.combined_score) - (a.insider_trading_prob ?? a.combined_score)
       )
       setLiveData(sorted)
-
       if (liveScoredCsv) {
         const m = {}
         parseCsv(liveScoredCsv).forEach((row) => { m[row.question] = row })
@@ -98,35 +93,37 @@ export default function App() {
   const medium = data.filter((d) => rowScore(d) >= 0.25 && rowScore(d) < 0.35).length
   const low    = data.filter((d) => rowScore(d) <  0.25).length
 
+  // scatter needs both axes to exist
+  const scatterData = data.filter(
+    (d) => d.suspicion_score != null && !isNaN(d.suspicion_score) &&
+           d.iso_score != null && !isNaN(d.iso_score)
+  )
+
   return (
-    <div className="min-h-screen text-stone-900" style={{ backgroundColor: '#f7f3ed' }}>
+    <div className="min-h-screen text-slate-900" style={{ backgroundColor: '#f0f5ff' }}>
       {/* ── Header ── */}
-      <header className="sticky top-0 z-20 border-b border-stone-300" style={{ backgroundColor: '#f7f3ed' }}>
+      <header className="sticky top-0 z-20 border-b border-blue-200 bg-slate-900">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex flex-wrap items-center gap-3 mb-1">
-            <h1 className="text-base font-bold text-stone-900 tracking-tight">
+            <h1 className="text-base font-bold text-white tracking-tight">
               Polymarket Insider Trading Detector
             </h1>
-            <span className="text-[10px] font-medium border border-stone-400 text-stone-500 px-1.5 py-0.5 uppercase tracking-widest">
+            <span className="text-[10px] font-semibold border border-blue-400 text-blue-300 px-1.5 py-0.5 uppercase tracking-widest rounded">
               POC
             </span>
           </div>
-          <p className="text-stone-600 text-xs leading-relaxed max-w-3xl">
-            Proof-of-concept detector for informed trading in resolved Polymarket prediction markets.
-            Ensemble model (PU-LightGBM + IsolationForest + One-Class SVM) scored on{' '}
-            <span className="text-stone-800">price anomaly features</span> and{' '}
-            <span className="text-stone-800">on-chain wallet behavior</span> to flag markets
-            where insiders may have traded ahead of outcomes.
+          <p className="text-slate-400 text-xs leading-relaxed max-w-3xl">
+            Ensemble model (PU-LightGBM + IsolationForest + One-Class SVM) scoring resolved Polymarket
+            political markets on <span className="text-slate-200">price anomaly</span> and{' '}
+            <span className="text-slate-200">on-chain wallet behavior</span> to flag potential insider trading.
           </p>
-
-          {/* ── Tabs ── */}
           <div className="mt-3 flex gap-1">
             <TabButton active={tab === 'historical'} onClick={() => { setTab('historical'); setSelected(null) }}>
-              Historical
+              Historical Markets
             </TabButton>
             <TabButton active={tab === 'live'} onClick={() => { setTab('live'); setLiveSelected(null) }}>
               Live Markets
-              <span className="ml-1.5 text-[9px] font-medium border border-stone-400 text-stone-500 px-1 py-0.5 uppercase">
+              <span className="ml-1.5 text-[9px] font-semibold border border-blue-500 text-blue-300 px-1 py-0.5 uppercase rounded">
                 ending soon
               </span>
             </TabButton>
@@ -134,7 +131,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+      <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
 
         {/* ── Historical tab ── */}
         {tab === 'historical' && (
@@ -144,17 +141,23 @@ export default function App() {
             {!loading && !error && (
               <>
                 <div className="grid grid-cols-3 gap-4">
-                  <StatCard count={high}   label="High Suspicion"  sub="≥ 0.35 combined score" colorClass="text-red-800"    borderClass="border-stone-300 bg-stone-50" />
-                  <StatCard count={medium} label="Medium Suspicion" sub="0.25 – 0.35 combined score" colorClass="text-amber-900" borderClass="border-stone-300 bg-stone-50" />
-                  <StatCard count={low}    label="Low / Clean"      sub="< 0.25 combined score" colorClass="text-emerald-800"  borderClass="border-stone-300 bg-stone-50" />
+                  <StatCard count={high}   label="High Suspicion"   sub="insider prob ≥ 0.35" colorClass="text-red-600"    borderClass="border-red-200 bg-red-50" />
+                  <StatCard count={medium} label="Medium Suspicion"  sub="insider prob 0.25–0.35" colorClass="text-amber-600" borderClass="border-amber-200 bg-amber-50" />
+                  <StatCard count={low}    label="Low / Inconclusive" sub="insider prob < 0.25" colorClass="text-blue-600"   borderClass="border-blue-200 bg-blue-50" />
                 </div>
-                <section className="border border-stone-300 bg-stone-50 rounded p-6">
-                  <SectionTitle>Resolved Markets — Ranked by Combined Score</SectionTitle>
-                  <p className="text-stone-500 text-xs mb-4">
-                    Sorted highest → lowest. Click any row to see full signal detail.
-                  </p>
+
+                <section className="border border-blue-200 bg-white rounded-lg">
+                  <div className="px-6 pt-5 pb-3 border-b border-blue-100">
+                    <h2 className="text-sm font-semibold text-slate-700">
+                      Resolved Markets — Ranked by Insider Trading Probability
+                    </h2>
+                    <p className="text-slate-400 text-xs mt-1">
+                      Click any row to expand signal detail. Click column headers to sort.
+                    </p>
+                  </div>
                   <SuspicionTable data={data} scored={scored} wallet={wallet} onRowClick={setSelected} selected={selected} />
                 </section>
+
                 <Footer />
               </>
             )}
@@ -164,54 +167,38 @@ export default function App() {
         {/* ── Live tab ── */}
         {tab === 'live' && (
           <>
-            {/* ── Stats bar ── */}
             <div className="grid grid-cols-3 gap-4">
-              <StatCard
-                count={high}
-                label="High Suspicion"
-                sub="≥ 0.35 combined score"
-                colorClass="text-red-800"
-                borderClass="border-stone-300 bg-stone-50"
-              />
-              <StatCard
-                count={medium}
-                label="Medium Suspicion"
-                sub="0.25 – 0.35 combined score"
-                colorClass="text-amber-900"
-                borderClass="border-stone-300 bg-stone-50"
-              />
-              <StatCard
-                count={low}
-                label="Low / Clean"
-                sub="< 0.25 combined score"
-                colorClass="text-emerald-800"
-                borderClass="border-stone-300 bg-stone-50"
-              />
+              <StatCard count={high}   label="High Suspicion"    sub="insider prob ≥ 0.35" colorClass="text-red-600"    borderClass="border-red-200 bg-red-50" />
+              <StatCard count={medium} label="Medium Suspicion"   sub="insider prob 0.25–0.35" colorClass="text-amber-600" borderClass="border-amber-200 bg-amber-50" />
+              <StatCard count={low}    label="Low / Inconclusive"  sub="insider prob < 0.25" colorClass="text-blue-600"   borderClass="border-blue-200 bg-blue-50" />
             </div>
 
-            {/* ── Scatter plot ── */}
-            <section className="border border-stone-300 bg-stone-50 rounded p-6">
-              <SectionTitle>Price Score vs Wallet Score</SectionTitle>
-              <p className="text-stone-500 text-xs mb-4">
-                Markets in the upper-right corner show anomalous signals in both dimensions.
-                Bubble size reflects combined score magnitude.
-              </p>
-              <ScatterPlot data={data.filter((d) => d.wallet_score != null && !isNaN(d.wallet_score))} />
-            </section>
+            {scatterData.length > 0 && (
+              <section className="border border-blue-200 bg-white rounded-lg p-6">
+                <h2 className="text-sm font-semibold text-slate-700 mb-1">
+                  Price Anomaly vs Full-Feature Isolation Score
+                </h2>
+                <p className="text-slate-400 text-xs mb-4">
+                  Markets in the upper-right corner are anomalous on both price and wallet dimensions.
+                  Bubble size reflects ensemble insider probability.
+                </p>
+                <ScatterPlot data={scatterData} />
+              </section>
+            )}
 
-            {/* ── Ranked table ── */}
-            <section className="border border-stone-300 bg-stone-50 rounded p-6">
-              <SectionTitle>Markets Ranked by Combined Score</SectionTitle>
-              <p className="text-stone-500 text-xs mb-4">
-                Sorted highest → lowest. Click any row to see full signal detail.
-              </p>
+            <section className="border border-blue-200 bg-white rounded-lg">
+              <div className="px-6 pt-5 pb-3 border-b border-blue-100">
+                <h2 className="text-sm font-semibold text-slate-700">
+                  Live Markets — Ranked by Insider Trading Probability
+                </h2>
+                <p className="text-slate-400 text-xs mt-1">
+                  Click any row to expand signal detail. Click column headers to sort.
+                </p>
+              </div>
               <SuspicionTable data={data} scored={scored} wallet={wallet} onRowClick={setSelected} selected={selected} />
             </section>
 
-            {/* ── Footer ── */}
-            <footer className="text-center text-stone-400 text-xs pb-6">
-              POC · for research purposes only · data sourced from Polymarket public API
-            </footer>
+            <Footer />
           </>
         )}
 
@@ -224,10 +211,10 @@ function TabButton({ active, onClick, children }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium transition-colors ${
+      className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
         active
-          ? 'bg-stone-200 text-stone-900'
-          : 'text-stone-500 hover:text-stone-800 hover:bg-stone-200/60'
+          ? 'bg-blue-600 text-white'
+          : 'text-slate-400 hover:text-white hover:bg-slate-700'
       }`}
     >
       {children}
@@ -237,33 +224,25 @@ function TabButton({ active, onClick, children }) {
 
 function StatCard({ count, label, sub, colorClass, borderClass }) {
   return (
-    <div className={`border p-4 text-center ${borderClass}`}>
+    <div className={`border rounded-lg p-4 text-center ${borderClass}`}>
       <div className={`text-3xl font-bold tabular-nums ${colorClass}`}>{count}</div>
-      <div className="text-stone-700 text-sm font-medium mt-1">{label}</div>
-      <div className="text-stone-400 text-xs mt-0.5">{sub}</div>
+      <div className="text-slate-700 text-sm font-medium mt-1">{label}</div>
+      <div className="text-slate-400 text-xs mt-0.5">{sub}</div>
     </div>
-  )
-}
-
-function SectionTitle({ children }) {
-  return (
-    <h2 className="text-xs font-semibold text-stone-500 uppercase tracking-widest mb-1">
-      {children}
-    </h2>
   )
 }
 
 function LoadingState() {
   return (
-    <div className="flex items-center justify-center h-64 text-stone-500 text-sm">
-      <span>Loading market data…</span>
+    <div className="flex items-center justify-center h-64 text-slate-400 text-sm">
+      Loading market data…
     </div>
   )
 }
 
 function ErrorState({ msg }) {
   return (
-    <div className="flex items-center justify-center h-64 text-red-700 text-sm">
+    <div className="flex items-center justify-center h-64 text-red-600 text-sm">
       Failed to load CSV: {msg}
     </div>
   )
@@ -271,7 +250,7 @@ function ErrorState({ msg }) {
 
 function Footer() {
   return (
-    <footer className="text-center text-stone-400 text-xs pb-6">
+    <footer className="text-center text-slate-400 text-xs pb-6">
       POC · for research purposes only · data sourced from Polymarket public API
     </footer>
   )
