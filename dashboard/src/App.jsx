@@ -112,13 +112,11 @@ export default function App() {
             </span>
           </div>
           <p className="text-stone-600 text-xs leading-relaxed max-w-3xl">
-            Proof-of-concept detector for informed trading in prediction markets.
-            Combines{' '}
-            <span className="text-stone-800">VPIN</span> (Volume-Synchronized Probability of
-            Informed Trading),{' '}
-            <span className="text-stone-800">price volatility</span>, and{' '}
-            <span className="text-stone-800">anomaly detection</span> to flag markets where
-            insiders may have traded ahead of outcomes.
+            Proof-of-concept detector for informed trading in resolved Polymarket prediction markets.
+            Ensemble model (PU-LightGBM + IsolationForest + One-Class SVM) scored on{' '}
+            <span className="text-stone-800">price anomaly features</span> and{' '}
+            <span className="text-stone-800">on-chain wallet behavior</span> to flag markets
+            where insiders may have traded ahead of outcomes.
           </p>
 
           {/* ── Tabs ── */}
