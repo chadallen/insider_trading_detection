@@ -98,9 +98,9 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
         <span>#</span>
         <span>Market Question</span>
         <span className="text-right">Price</span>
-        <span className="text-right">Wallet</span>
-        <span className="text-right">Combined</span>
-        <span className="text-right">RF Prob</span>
+        <span className="text-right">Anomaly</span>
+        <span className="text-right">Ensemble</span>
+        <span className="text-right">PU Prob</span>
         <span className="text-center">Risk</span>
       </div>
 
@@ -184,10 +184,9 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                 {/* RF probability — full-width summary row */}
                 {row.insider_trading_prob != null && (
                   <div className="mb-4 flex items-center justify-between border border-stone-300 px-4 py-2.5 bg-stone-50">
-                    <span className="text-xs text-stone-500">RF Insider-Trading Probability</span>
+                    <span className="text-xs text-stone-500">Ensemble Score (PU-LightGBM + IsoForest + OC-SVM)</span>
                     <span className="tabular-nums font-bold text-sm text-stone-800">
                       {(row.insider_trading_prob * 100).toFixed(1)}%
-                      <span className="text-stone-400 font-normal text-xs ml-1">(model in training)</span>
                     </span>
                   </div>
                 )}
@@ -203,9 +202,9 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                       <DetailRow label="Price Volatility"   value={fmtNum(s.price_volatility)} />
                       <DetailRow label="Surprise Score"     value={fmtNum(s.surprise_score)} />
                       <DetailRow label="Late Move Ratio"    value={fmtNum(s.late_move_ratio)} />
-                      <DetailRow label="VPIN Score"         value={fmtNum(s.vpin_score)} highlight={s.vpin_score > 0.8} />
-                      <DetailRow label="Time-Weighted VPIN" value={fmtNum(s.time_weighted_vpin)} />
-                      <DetailRow label="Anomaly Signal"     value={s.anomaly_score === -1 ? 'ANOMALOUS' : 'normal'} highlight={s.anomaly_score === -1} />
+                      <DetailRow label="Momentum 6h"        value={fmtNum(s.price_momentum_6h)} />
+                      <DetailRow label="Momentum 12h"       value={fmtNum(s.price_momentum_12h)} />
+                      <DetailRow label="Anomaly Flag"       value={s.anomaly_score === -1 ? 'ANOMALOUS' : 'normal'} highlight={s.anomaly_score === -1} />
                       <DetailRow label="Suspicion Score"    value={fmtNum(s.suspicion_score)} />
                     </DetailSection>
                   ) : (
@@ -219,15 +218,13 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                       <DetailRow label="Unique Wallets"        value={w.unique_wallets} />
                       <DetailRow label="Trade Count"           value={w.trade_count} />
                       <DetailRow label="Total Volume"          value={fmtVol(w.total_volume)} />
-                      <DetailRow label="Top-3 Wallet Volume"   value={fmtVol(w.top3_volume)} />
                       <DetailRow label="Wallet Concentration"  value={fmtNum(w.wallet_concentration)} highlight={w.wallet_concentration > 0.2} />
-                      <DetailRow label="Trade VPIN"            value={fmtNum(w.trade_vpin)} />
-                      <DetailRow label="Directional Consensus" value={fmtNum(w.directional_consensus)} />
+                      <DetailRow label="Order Flow Imbalance"  value={fmtNum(w.order_flow_imbalance)} highlight={w.order_flow_imbalance > 0.7} />
                       <DetailRow label="Burst Score"           value={w.burst_score} highlight={w.burst_score > 40} />
+                      <DetailRow label="New Wallet Ratio"      value={fmtPct(w.new_wallet_ratio)} highlight={w.new_wallet_ratio > 0.5} />
                       <DetailRow label="New Wallet Ratio 6h"   value={fmtPct(w.new_wallet_ratio_6h)} />
-                      <DetailRow label="New Wallet Ratio 12h"  value={fmtPct(w.new_wallet_ratio_12h)} />
-                      <DetailRow label="First Trade"           value={fmtDate(w.first_trade_time)} />
-                      <DetailRow label="Last Trade"            value={fmtDate(w.last_trade_time)} />
+                      <DetailRow label="Wallet Age (median)"   value={w.wallet_age_median_days != null ? `${Math.round(w.wallet_age_median_days)}d` : '—'} />
+                      <DetailRow label="Cross-Market Wallets"  value={w.cross_market_wallet_flag ?? '—'} highlight={w.cross_market_wallet_flag > 2} />
                     </DetailSection>
                   ) : (
                     <DetailSection title="Wallet Signals">
