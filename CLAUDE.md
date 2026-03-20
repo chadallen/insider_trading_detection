@@ -23,16 +23,22 @@ set to `dashboard` via the Vercel API; `dashboard/vercel.json` holds the build c
 2. US strikes Iran by February 13, 2026 — prob 0.79
 3. US strikes Iran by February 28, 2026 — prob 0.73
 
-### Architecture Decisions (2026-03-19)
+### Architecture Decisions (2026-03-20)
 
-**Dashboard — research-oriented UI restyle:**
-The React dashboard was restyled from a dark "consumer app" aesthetic to a
-cream/stone research theme (`#f7f3ed` background, Tailwind stone/amber/emerald
-palette). All column headers and detail-panel labels now reflect Phase 3 output
-columns (`insider_trading_prob`, `iso_score`, `pu_prob`, `ocsvm_score`,
-`suspicion_score`). Removed: VPIN Score, Time-Weighted VPIN, Trade VPIN,
+**Dashboard — Hex-inspired restyle (PR #12):**
+The React dashboard was restyled to a Hex.tech-inspired analytic aesthetic:
+white/light-gray background, clean sans-serif typography, summary stat cards
+(High/Medium/Low suspicion counts), and a horizontal bar chart with color-coded
+suspicion levels and threshold reference lines. Replaced the ranked table as the
+primary visualization. All labels reflect Phase 3 output columns
+(`insider_trading_prob`, `iso_score`, `pu_prob`, `ocsvm_score`, `suspicion_score`).
+
+**Dashboard — earlier restyle notes (2026-03-19, superseded):**
+The cream/stone theme (`#f7f3ed` background, Tailwind stone/amber/emerald palette)
+from PR #11 was replaced by the Hex restyle above. Column header and detail-panel
+changes from PR #11 still apply: removed VPIN Score, Time-Weighted VPIN, Trade VPIN,
 Directional Consensus, Top-3 Wallet Volume, New Wallet Ratio 12h, First/Last
-Trade timestamps. Added: Momentum 6h, Momentum 12h, Order Flow Imbalance,
+Trade timestamps; added Momentum 6h, Momentum 12h, Order Flow Imbalance,
 New Wallet Ratio, Wallet Age (median), Cross-Market Wallets.
 
 **Vercel deployment — monorepo setup:**
