@@ -43,7 +43,8 @@ export default function App() {
       fetch('/df_wallet_agg.csv').then((r) => r.text()),
     ])
       .then(([combined, scoredCsv, walletCsv]) => {
-        const sorted = [...parseCsv(combined)].sort((a, b) => b.combined_score - a.combined_score)
+        const getScore = (d) => d.insider_trading_prob ?? d.combined_score ?? 0
+        const sorted = [...parseCsv(combined)].sort((a, b) => getScore(b) - getScore(a))
         setData(sorted)
 
         const scoredMap = {}
@@ -92,9 +93,10 @@ export default function App() {
     })
   }, [tab, liveData])
 
-  const high   = data.filter((d) => d.combined_score >= 0.35).length
-  const medium = data.filter((d) => d.combined_score >= 0.25 && d.combined_score < 0.35).length
-  const low    = data.filter((d) => d.combined_score <  0.25).length
+  const rowScore = (d) => d.insider_trading_prob ?? d.combined_score ?? 0
+  const high   = data.filter((d) => rowScore(d) >= 0.35).length
+  const medium = data.filter((d) => rowScore(d) >= 0.25 && rowScore(d) < 0.35).length
+  const low    = data.filter((d) => rowScore(d) <  0.25).length
 
   return (
     <div className="min-h-screen text-stone-900" style={{ backgroundColor: '#f7f3ed' }}>

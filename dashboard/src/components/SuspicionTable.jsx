@@ -1,5 +1,9 @@
-const level = (score) =>
-  score >= 0.35 ? 'high' : score >= 0.25 ? 'medium' : 'low'
+// primary score: insider_trading_prob (Phase 3+), fall back to combined_score (legacy)
+const getScore = (row) => row.insider_trading_prob ?? row.combined_score ?? 0
+const level = (row) => {
+  const s = getScore(row)
+  return s >= 0.35 ? 'high' : s >= 0.25 ? 'medium' : 'low'
+}
 
 const BORDER = {
   high:   'border-l-4 border-red-700',
@@ -101,7 +105,7 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
       </div>
 
       {data.map((row, i) => {
-        const lvl = level(row.combined_score)
+        const lvl = level(row)
         const isOpen = selected?.question === row.question
         const s = scored[row.question]
         const w = wallet[row.question]
@@ -120,18 +124,18 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                 <span className="text-stone-400 text-xs tabular-nums">{i + 1}</span>
                 <span className="text-stone-800 text-sm truncate pr-2">{row.question}</span>
                 <ScoreBar
-                  value={row.price_score}
+                  value={row.suspicion_score != null ? Math.max(0, Math.min(1, (row.suspicion_score + 0.5))) : null}
                   colorClass="bg-stone-600"
                 />
                 <ScoreBar
-                  value={row.wallet_score}
+                  value={row.iso_score ?? row.wallet_score ?? null}
                   colorClass="bg-stone-500"
                 />
                 <span className={`tabular-nums font-semibold text-sm text-right ${SCORE_COLOR[lvl]}`}>
-                  {row.combined_score.toFixed(4)}
+                  {getScore(row).toFixed(4)}
                 </span>
                 <span className="tabular-nums text-xs text-right text-stone-500">
-                  {row.insider_trading_prob != null ? row.insider_trading_prob.toFixed(3) : '—'}
+                  {row.pu_prob != null ? row.pu_prob.toFixed(3) : '—'}
                 </span>
                 <div className="flex items-center justify-between gap-2">
                   <span className={`text-xs px-2 py-0.5 font-medium tracking-wide ${BADGE[lvl]}`}>
@@ -154,9 +158,7 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                       <span className="text-emerald-700 text-xs tabular-nums">{until}</span>
                     )}
                     <span className={`tabular-nums font-semibold text-sm ${SCORE_COLOR[lvl]}`}>
-                      {showProb
-                        ? (row.insider_trading_prob != null ? row.insider_trading_prob.toFixed(3) : '—')
-                        : row.combined_score.toFixed(4)}
+                      {getScore(row).toFixed(4)}
                     </span>
                   </div>
                 </div>
@@ -170,12 +172,12 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                 {/* Score bars (mobile only — desktop already shows them in header) */}
                 <div className="sm:hidden mb-4 space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-stone-500">Price Score</span>
-                    <ScoreBar value={row.price_score} colorClass="bg-stone-600" />
+                    <span className="text-xs text-stone-500">Price Signal</span>
+                    <ScoreBar value={row.suspicion_score != null ? Math.max(0, Math.min(1, row.suspicion_score + 0.5)) : null} colorClass="bg-stone-600" />
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-stone-500">Wallet Score</span>
-                    <ScoreBar value={row.wallet_score ?? 0} colorClass="bg-stone-500" />
+                    <span className="text-xs text-stone-500">Anomaly Score</span>
+                    <ScoreBar value={row.iso_score ?? null} colorClass="bg-stone-500" />
                   </div>
                 </div>
 
