@@ -80,21 +80,25 @@ def push_to_github(df_combined, df_scored, df_wallet_agg):
 
 def _annotate_labeled_windows(df_markets: pd.DataFrame) -> pd.DataFrame:
     """
-    For markets matching labeled cases, set price_start_time to the case's
-    start timestamp. fetch_price_histories() uses this to extend the CLOB
-    window back to the start of the known suspicious period rather than just
-    the default 48h before resolution.
+    For markets matching labeled cases:
+      - set price_start_time to the case's start timestamp (extended CLOB window)
+      - set is_labeled_case=True to bypass the starting-price filter in
+        fetch_price_histories() — insider trading cases often start at low
+        probability (e.g. Maduro 0.7%, Israel strike 7.5%) which would
+        otherwise exclude them as "uncontested" markets.
     """
     from backend.pipeline.wallet_features import load_labeled_cases, question_matches_filter
     labeled = load_labeled_cases()
     df = df_markets.copy()
     df["price_start_time"] = None
+    df["is_labeled_case"] = False
     for _, case in labeled.iterrows():
         mask = df["question"].apply(
             lambda q: question_matches_filter(q, case["question_filter"])
         )
         df.loc[mask, "price_start_time"] = case["start"]
-    n = df["price_start_time"].notna().sum()
+        df.loc[mask, "is_labeled_case"] = True
+    n = df["is_labeled_case"].sum()
     if n:
         print(f"  {n} markets annotated with labeled case price windows")
     return df

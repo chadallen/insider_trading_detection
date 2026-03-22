@@ -13,6 +13,7 @@ import time
 import requests
 import pandas as pd
 from datetime import datetime, timezone
+from typing import Optional
 
 
 POLYGONSCAN_BASE = "https://api.etherscan.io/v2/api"
@@ -23,7 +24,7 @@ def _query_first_timestamp(
     action: str,
     api_key: str = "",
     _debug: bool = False,
-) -> datetime | None:
+) -> Optional[datetime]:
     """
     Query Polygonscan for the earliest transaction of a given action type
     ('txlist' for external txs, 'tokentx' for ERC-20 transfers).
@@ -64,7 +65,7 @@ def fetch_first_tx_date(
     address: str,
     api_key: str = "",
     _debug_first: bool = False,
-) -> datetime | None:
+) -> Optional[datetime]:
     """
     Return the timestamp of the earliest activity for a Polygon wallet.
 

@@ -209,8 +209,12 @@ def fetch_price_histories(df_markets: pd.DataFrame) -> dict:
         )
         if len(history) < 3:
             continue
-        if not (0.15 <= history["price"].iloc[0] <= 0.85):
-            continue
+        # Bypass starting-price filter for labeled case markets — insider
+        # trading cases often start at low probability (e.g. Maduro 0.7%,
+        # Israel strike 7.5%) which would otherwise exclude them.
+        if not row.get("is_labeled_case", False):
+            if not (0.15 <= history["price"].iloc[0] <= 0.85):
+                continue
         histories[row["token_id"]] = history
 
     print(f"\nPrice histories cached for {len(histories)}/{len(df_markets)} markets")

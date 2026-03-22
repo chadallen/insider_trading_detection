@@ -43,7 +43,6 @@ MODEL_WALLET_FEATURES = [
     "new_wallet_ratio_6h",
     "burst_score",
     "order_flow_imbalance",
-    "wallet_concentration",
     "wallet_age_median_days",
     "cross_market_wallet_flag",
 ]
@@ -67,8 +66,8 @@ LABEL_WEIGHTS = {
 # Ensemble component weights (must sum to 1.0).
 # Calibrated by label type; adjust after Phase 5 leave-one-out CV.
 ENSEMBLE_WEIGHTS = {
-    "pu":    0.5,   # PU-LightGBM probability (primary)
-    "iso":   0.3,   # Unified IsolationForest anomaly score
+    "pu":    0.75,  # PU-LightGBM probability (primary)
+    "iso":   0.05,  # Unified IsolationForest anomaly score
     "ocsvm": 0.2,   # One-Class SVM similarity to CONFIRMED cases
 }
 
@@ -313,7 +312,7 @@ def train_classifier(
     print("  [3/3] One-Class SVM")
     ocsvm_score = np.full(len(df_scoreable), 0.5)   # neutral default
     ocsvm = None
-    if confirmed_mask.sum() >= 3:
+    if confirmed_mask.sum() >= 1:
         ocsvm = OneClassSVM(nu=0.5, kernel="rbf", gamma="scale")
         ocsvm.fit(X_all[confirmed_mask])
         ocsvm_raw   = ocsvm.decision_function(X_all)
@@ -321,7 +320,7 @@ def train_classifier(
         print(f"     Trained on {confirmed_mask.sum()} CONFIRMED cases")
     else:
         print(f"     Only {confirmed_mask.sum()} CONFIRMED case(s) matched — skipping "
-              f"(need ≥ 3); using neutral 0.5 for ocsvm_score")
+              f"(need ≥ 1); using neutral 0.5 for ocsvm_score")
     df_scoreable["ocsvm_score"] = ocsvm_score
 
     # ── Step 8: Ensemble ──────────────────────────────────────────────────

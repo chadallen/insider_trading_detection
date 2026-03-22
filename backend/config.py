@@ -18,7 +18,7 @@ POLYGONSCAN_API_KEY = os.environ.get("POLYGONSCAN_API_KEY", "")
 # ── Pipeline settings ─────────────────────────────────────────────────────
 TOP_N_MARKETS      = int(os.environ.get("TOP_N_MARKETS", "50"))
 MIN_VOLUME_USD     = 10_000_000   # Markets below this are excluded
-MIN_END_DATE       = "2025-01-01"
+MIN_END_DATE       = "2024-01-01"
 POLITICS_TAG_ID    = 2
 MARKETS_PER_PAGE   = 100
 MAX_PAGES          = 10
