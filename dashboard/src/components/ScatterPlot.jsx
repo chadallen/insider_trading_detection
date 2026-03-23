@@ -71,7 +71,7 @@ export default function ScatterPlot({ data }) {
           type="number"
           domain={[0, 1]}
           tickFormatter={(v) => `${Math.round(v * 100)}%`}
-          tick={{ fill: '#a1a1aa', fontSize: 11, fontFamily: 'monospace' }}
+          tick={{ fill: '#a1a1aa', fontSize: 10, fontFamily: 'ui-monospace, monospace' }}
           tickLine={false}
           axisLine={{ stroke: '#e4e4e7' }}
           tickCount={6}
@@ -82,7 +82,7 @@ export default function ScatterPlot({ data }) {
           dataKey="question"
           width={260}
           tickFormatter={(v) => truncate(v, 42)}
-          tick={{ fill: '#52525b', fontSize: 12, fontFamily: 'Inter, sans-serif' }}
+          tick={{ fill: '#52525b', fontSize: 11, fontFamily: 'ui-monospace, monospace' }}
           tickLine={false}
           axisLine={false}
         />
@@ -110,7 +110,7 @@ export default function ScatterPlot({ data }) {
             dataKey="prob"
             position="right"
             formatter={(v) => `${(v * 100).toFixed(1)}%`}
-            style={{ fill: '#71717a', fontSize: 11, fontFamily: 'monospace' }}
+            style={{ fill: '#71717a', fontSize: 10, fontFamily: 'ui-monospace, monospace' }}
           />
         </Bar>
       </BarChart>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import SignalRadar from './SignalRadar'
 
 const getScore = (row) => row.insider_trading_prob ?? row.combined_score ?? 0
 
@@ -32,11 +33,11 @@ const fmtDate = (s) => {
 const COLUMNS = [
   { key: null,                   label: '#',            width: 'w-7',    align: 'text-left'   },
   { key: null,                   label: 'Market',       width: 'flex-1', align: 'text-left'   },
+  { key: null,                   label: 'Resolved',     width: 'w-28',   align: 'text-right'  },
   { key: 'suspicion_score',      label: 'Price IF',     width: 'w-28',   align: 'text-right', tooltip: 'IsolationForest on price features only' },
   { key: 'iso_score',            label: 'IsoForest',    width: 'w-28',   align: 'text-right', tooltip: 'IsolationForest on all 14 features' },
   { key: 'pu_prob',              label: 'PU-LGB',       width: 'w-20',   align: 'text-right', tooltip: 'PU-LightGBM adjusted probability' },
   { key: 'insider_trading_prob', label: 'Insider Prob', width: 'w-28',   align: 'text-right', tooltip: 'Ensemble: 0.5×PU + 0.3×ISO + 0.2×OCSVM' },
-  { key: null,                   label: 'Level',        width: 'w-24',   align: 'text-center' },
 ]
 
 // ── sub-components ────────────────────────────────────────────────────────────
@@ -56,7 +57,7 @@ function ChevronIcon({ open }) {
 
 function SortIcon({ direction }) {
   if (!direction) return <span className="text-zinc-300 ml-0.5 text-[10px]">↕</span>
-  return <span className="text-indigo-500 ml-0.5 text-[10px]">{direction === 'asc' ? '↑' : '↓'}</span>
+  return <span className="text-orange-500 ml-0.5 text-[10px]">{direction === 'asc' ? '↑' : '↓'}</span>
 }
 
 function MiniBar({ value, colorClass }) {
@@ -193,6 +194,7 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
     <div>
       {/* ── Column header row ── */}
       <div className="hidden sm:flex items-center gap-x-3 px-4 py-2 border-b border-zinc-100 bg-zinc-50 text-[11px] font-medium text-zinc-400 uppercase tracking-wide select-none">
+        <span className="w-4 shrink-0"></span>
         <span className="w-7 shrink-0">#</span>
         <span className="flex-1">Market</span>
         {COLUMNS.slice(2).map((col) => (
@@ -202,8 +204,8 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
             disabled={!col.key}
             title={col.tooltip}
             className={`${col.width} shrink-0 ${col.align} flex items-center justify-end gap-0.5 ${
-              col.key ? 'hover:text-indigo-600 cursor-pointer' : 'cursor-default'
-            } ${sortKey === col.key ? 'text-indigo-500' : ''}`}
+              col.key ? 'hover:text-orange-600 cursor-pointer' : 'cursor-default'
+            } ${sortKey === col.key ? 'text-orange-500' : ''}`}
           >
             {col.label}
             {col.key && <SortIcon direction={sortKey === col.key ? sortDir : null} />}
@@ -229,13 +231,14 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
               {/* ── Collapsed row ── */}
               <button
                 onClick={() => onRowClick(isOpen ? null : row)}
-                className={`w-full text-left px-4 py-2.5 transition-colors duration-100 ${
-                  isOpen ? 'bg-indigo-50/60' : 'hover:bg-zinc-50'
+                className={`w-full text-left px-4 py-2.5 transition-colors duration-100 cursor-pointer ${
+                  isOpen ? 'bg-orange-50/40' : 'hover:bg-zinc-100/70'
                 }`}
                 aria-expanded={isOpen}
               >
                 {/* Desktop */}
                 <div className="hidden sm:flex items-center gap-x-3">
+                  <ChevronIcon open={isOpen} />
                   <span className="w-7 shrink-0 text-zinc-300 text-[12px] tabular-nums font-mono">{i + 1}</span>
                   <span
                     className="flex-1 text-zinc-800 text-[13px] truncate pr-2"
@@ -243,6 +246,12 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                   >
                     {row.question}
                   </span>
+
+                  <div className="w-28 shrink-0 text-right">
+                    <span className="tabular-nums text-xs text-zinc-400 font-mono">
+                      {fmtDate(row.end_date)}
+                    </span>
+                  </div>
 
                   <div className="w-28 shrink-0">
                     <MiniBar value={priceIF} colorClass="bg-zinc-400" />
@@ -260,40 +269,35 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                       {(getScore(row) * 100).toFixed(1)}%
                     </span>
                   </div>
-                  <div className="w-24 shrink-0 flex items-center justify-between gap-1">
-                    <span className={`text-[10px] px-2 py-0.5 font-medium tracking-wide rounded ${colors.badge}`}>
-                      {lvl.toUpperCase()}
-                    </span>
-                    <ChevronIcon open={isOpen} />
-                  </div>
                 </div>
 
                 {/* Mobile */}
                 <div className="sm:hidden flex items-start gap-3">
+                  <ChevronIcon open={isOpen} />
                   <span className="text-zinc-300 text-xs tabular-nums mt-0.5 shrink-0 w-5">{i + 1}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-zinc-800 text-sm leading-snug mb-1.5">{row.question}</p>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-[10px] px-2 py-0.5 font-medium tracking-wide rounded ${colors.badge}`}>
-                        {lvl.toUpperCase()}
-                      </span>
                       <span className={`tabular-nums font-bold text-sm ${colors.score}`}>
                         {(getScore(row) * 100).toFixed(1)}%
                       </span>
                     </div>
                   </div>
-                  <ChevronIcon open={isOpen} />
                 </div>
               </button>
 
               {/* ── Expanded detail panel ── */}
               {isOpen && (
                 <div className="px-4 pb-5 pt-3 bg-white border-t border-zinc-100">
-                  <ScoreBreakdown row={row} />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 mb-5">
+                    <ScoreBreakdown row={row} />
+                    <SignalRadar row={row} />
+                  </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
                     {s ? (
                       <DetailSection title="Price Signals">
+                        <DetailRow label="Resolved"         value={fmtDate(row.end_date)} />
                         <DetailRow label="Volume"           value={fmtVol(s.volume)} />
                         <DetailRow label="Starting Price"   value={fmtNum(s.starting_price)} />
                         <DetailRow label="Final Price"      value={fmtNum(s.final_price)} />
