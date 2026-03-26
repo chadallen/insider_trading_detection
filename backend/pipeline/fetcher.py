@@ -8,7 +8,7 @@ import requests
 import pandas as pd
 from datetime import datetime, timedelta, timezone
 from backend.config import (
-    POLITICS_TAG_ID, MARKETS_PER_PAGE, MAX_PAGES,
+    MARKETS_PER_PAGE, MAX_PAGES,
     MIN_VOLUME_USD, MIN_END_DATE, PRICE_HOURS_BEFORE,
 )
 
@@ -34,7 +34,7 @@ def _parse_markets_from_events(events: list, seen_ids: set) -> list:
                 "volume":          float(mkt.get("volume") or 0),
                 "resolution_time": mkt.get("endDate"),
                 "token_id":        token_id,
-                "category":        "politics",
+                "category":        event.get("category", "other"),
                 "event_title":     event.get("title", ""),
             })
     return rows
@@ -46,13 +46,13 @@ def fetch_markets() -> pd.DataFrame:
     Filters: volume >= MIN_VOLUME_USD, end_date >= MIN_END_DATE.
     """
     all_markets, seen_ids = [], set()
-    print(f"Fetching closed political markets (tag_id={POLITICS_TAG_ID})...")
+    print(f"Fetching closed markets (all categories)...")
 
     for page in range(MAX_PAGES):
         offset = page * MARKETS_PER_PAGE
         url = (
             f"https://gamma-api.polymarket.com/events"
-            f"?tag_id={POLITICS_TAG_ID}&closed=true"
+            f"?closed=true"
             f"&limit={MARKETS_PER_PAGE}&offset={offset}"
             f"&order=volume&ascending=false"
         )
@@ -87,15 +87,15 @@ def fetch_live_markets(hours_ahead: int = 48, min_volume: float = 1_000_000) -> 
     cutoff = now + timedelta(hours=hours_ahead)
     all_markets, seen_ids = [], set()
     print(
-        f"Fetching live political markets ending within {hours_ahead}h "
-        f"(tag_id={POLITICS_TAG_ID}, vol >= ${min_volume:,.0f})..."
+        f"Fetching live markets (all categories) ending within {hours_ahead}h "
+        f"(vol >= ${min_volume:,.0f})..."
     )
 
     for page in range(MAX_PAGES):
         offset = page * MARKETS_PER_PAGE
         url = (
             f"https://gamma-api.polymarket.com/events"
-            f"?tag_id={POLITICS_TAG_ID}&closed=false&active=true"
+            f"?closed=false&active=true"
             f"&limit={MARKETS_PER_PAGE}&offset={offset}"
             f"&order=volume&ascending=false"
         )
