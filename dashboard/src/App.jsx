@@ -56,8 +56,8 @@ export default function App() {
       {/* ── Header ── */}
       <header className="bg-white border-b border-zinc-200">
         <div className="max-w-7xl mx-auto px-6 py-5">
-          <div className="flex items-start gap-6">
-            <div className="shrink-0 pt-0.5">
+          <div className="flex flex-col gap-2">
+            <div className="shrink-0">
               <h1 className="text-base font-bold text-zinc-900 tracking-tight font-mono uppercase">
                 Prediction Market Forensics
               </h1>
@@ -80,7 +80,7 @@ export default function App() {
             {data.length > 0 && (
               <>
                 {/* Two-chart row */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <section className="bg-white border border-zinc-200 rounded-lg p-5">
                     <ChartHeader
                       title="Model Agreement"
