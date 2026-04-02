@@ -62,7 +62,7 @@ export default function App() {
                 Prediction Market Forensics
               </h1>
             </div>
-            <p className="text-zinc-500 text-[13px] leading-relaxed">
+            <p className="text-zinc-700 text-[13px] leading-relaxed">
               Ensemble model (PU-LightGBM + IsolationForest + OC-SVM) scoring resolved Polymarket political markets on{' '}
               <span className="text-zinc-700 font-medium">price anomaly</span> and{' '}
               <span className="text-zinc-700 font-medium">on-chain wallet behavior</span>{' '}
@@ -80,7 +80,7 @@ export default function App() {
             {data.length > 0 && (
               <>
                 {/* Two-chart row */}
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <section className="bg-white border border-zinc-200 rounded-lg p-5">
                     <ChartHeader
                       title="Model Agreement"
@@ -111,7 +111,7 @@ export default function App() {
                 <h2 className="text-[13px] font-medium text-zinc-700">
                   Resolved Markets — Ranked by Insider Trading Probability
                 </h2>
-                <p className="text-zinc-400 text-[12px] mt-0.5">
+                <p className="text-zinc-700 text-[12px] mt-0.5">
                   Click any row to expand signal detail. Click column headers to sort.
                 </p>
               </div>
@@ -130,7 +130,7 @@ function ChartHeader({ title, meta }) {
   return (
     <div className="mb-4">
       <h2 className="text-[13px] font-medium text-zinc-700">{title}</h2>
-      <p className="text-zinc-400 text-[11px] font-mono mt-0.5">{meta}</p>
+      <p className="text-zinc-700 text-[11px] font-mono mt-0.5">{meta}</p>
     </div>
   )
 }

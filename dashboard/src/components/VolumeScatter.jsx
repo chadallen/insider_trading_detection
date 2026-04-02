@@ -78,20 +78,20 @@ export default function VolumeScatter({ data }) {
           domain={logDomain}
           ticks={LOG_TICKS.map((v) => Math.log10(v)).filter((v) => v >= logDomain[0] && v <= logDomain[1])}
           tickFormatter={(v) => fmtVol(Math.pow(10, v))}
-          tick={{ fill: '#a1a1aa', fontSize: 10, fontFamily: 'ui-monospace, monospace' }}
+          tick={{ fill: '#3f3f46', fontSize: 10, fontFamily: 'ui-monospace, monospace' }}
           tickLine={false}
           axisLine={{ stroke: '#e4e4e7' }}
-          label={{ value: 'market volume (log scale)', position: 'insideBottom', offset: -14, fill: '#a1a1aa', fontSize: 10 }}
+          label={{ value: 'market volume (log scale)', position: 'insideBottom', offset: -14, fill: '#3f3f46', fontSize: 10 }}
         />
         <YAxis
           type="number"
           dataKey="score"
           domain={[0, 1]}
           tickFormatter={(v) => `${Math.round(v * 100)}%`}
-          tick={{ fill: '#a1a1aa', fontSize: 10, fontFamily: 'ui-monospace, monospace' }}
+          tick={{ fill: '#3f3f46', fontSize: 10, fontFamily: 'ui-monospace, monospace' }}
           tickLine={false}
           axisLine={false}
-          label={{ value: 'ensemble score', angle: -90, position: 'insideLeft', offset: 14, fill: '#a1a1aa', fontSize: 10 }}
+          label={{ value: 'ensemble score', angle: -90, position: 'insideLeft', offset: 14, fill: '#3f3f46', fontSize: 10 }}
         />
         <ZAxis range={[44, 44]} />
         <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#e4e4e7', strokeDasharray: '3 3' }} />

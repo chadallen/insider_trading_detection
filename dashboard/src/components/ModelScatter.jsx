@@ -63,20 +63,20 @@ export default function ModelScatter({ data }) {
           dataKey="x"
           domain={[0, 1]}
           tickFormatter={(v) => v.toFixed(1)}
-          tick={{ fill: '#a1a1aa', fontSize: 10, fontFamily: 'ui-monospace, monospace' }}
+          tick={{ fill: '#3f3f46', fontSize: 10, fontFamily: 'ui-monospace, monospace' }}
           tickLine={false}
           axisLine={{ stroke: '#e4e4e7' }}
-          label={{ value: 'PU-LightGBM prob', position: 'insideBottom', offset: -14, fill: '#a1a1aa', fontSize: 10 }}
+          label={{ value: 'PU-LightGBM prob', position: 'insideBottom', offset: -14, fill: '#3f3f46', fontSize: 10 }}
         />
         <YAxis
           type="number"
           dataKey="y"
           domain={[0, 1]}
           tickFormatter={(v) => v.toFixed(1)}
-          tick={{ fill: '#a1a1aa', fontSize: 10, fontFamily: 'ui-monospace, monospace' }}
+          tick={{ fill: '#3f3f46', fontSize: 10, fontFamily: 'ui-monospace, monospace' }}
           tickLine={false}
           axisLine={false}
-          label={{ value: 'IsoForest score', angle: -90, position: 'insideLeft', offset: 14, fill: '#a1a1aa', fontSize: 10 }}
+          label={{ value: 'IsoForest score', angle: -90, position: 'insideLeft', offset: 14, fill: '#3f3f46', fontSize: 10 }}
         />
         <ZAxis range={[44, 44]} />
         <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#e4e4e7', strokeDasharray: '3 3' }} />
