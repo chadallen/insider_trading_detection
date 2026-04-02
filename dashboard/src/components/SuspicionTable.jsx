@@ -44,11 +44,11 @@ const COLUMNS = [
 function ChevronIcon({ open }) {
   return (
     <svg
-      className={`w-4 h-4 text-zinc-400 transition-transform duration-200 shrink-0 ${open ? 'rotate-180' : ''}`}
+      className={`w-5 h-5 text-blue-800 transition-transform duration-200 shrink-0 ${open ? 'rotate-180' : ''}`}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="2.5"
     >
       <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
