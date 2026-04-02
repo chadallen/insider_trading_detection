@@ -239,7 +239,7 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                 {/* Desktop */}
                 <div className="hidden sm:flex items-center gap-x-3">
                   <ChevronIcon open={isOpen} />
-                  <span className="w-7 shrink-0 text-zinc-300 text-[12px] tabular-nums font-mono">{i + 1}</span>
+                  <span className="w-7 shrink-0 text-zinc-500 text-[12px] tabular-nums font-mono">{i + 1}</span>
                   <span
                     className="flex-1 text-zinc-800 text-[13px] truncate pr-2"
                     title={row.question}
@@ -274,7 +274,7 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                 {/* Mobile */}
                 <div className="sm:hidden flex items-start gap-3">
                   <ChevronIcon open={isOpen} />
-                  <span className="text-zinc-300 text-xs tabular-nums mt-0.5 shrink-0 w-5">{i + 1}</span>
+                  <span className="text-zinc-500 text-xs tabular-nums mt-0.5 shrink-0 w-5">{i + 1}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-zinc-800 text-sm leading-snug mb-1.5">{row.question}</p>
                     <div className="flex items-center gap-2 flex-wrap">
