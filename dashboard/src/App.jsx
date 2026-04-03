@@ -152,9 +152,5 @@ function ErrorState({ msg }) {
 }
 
 function Footer() {
-  return (
-    <footer className="text-center text-zinc-300 text-xs font-mono pb-6">
-      research purposes only · data: Polymarket public API
-    </footer>
-  )
+  return <footer className="pb-6" />
 }

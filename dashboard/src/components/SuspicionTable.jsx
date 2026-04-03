@@ -9,9 +9,9 @@ const level = (row) => {
 }
 
 const LEVEL_COLORS = {
-  high:   { bar: 'bg-rose-500',   badge: 'border border-rose-200 text-rose-600 bg-rose-50',   left: 'border-l-2 border-rose-400',   score: 'text-rose-600'   },
-  medium: { bar: 'bg-amber-500',  badge: 'border border-amber-200 text-amber-600 bg-amber-50', left: 'border-l-2 border-amber-400',  score: 'text-amber-600'  },
-  low:    { bar: 'bg-zinc-300',   badge: 'border border-zinc-200 text-zinc-500 bg-zinc-50',    left: 'border-l-2 border-zinc-200',   score: 'text-zinc-500'   },
+  high:   { bar: 'bg-rose-500',   badge: 'border border-rose-200 text-rose-600 bg-rose-50',   score: 'text-rose-600'   },
+  medium: { bar: 'bg-amber-500',  badge: 'border border-amber-200 text-amber-600 bg-amber-50', score: 'text-amber-600'  },
+  low:    { bar: 'bg-zinc-300',   badge: 'border border-zinc-200 text-zinc-500 bg-zinc-50',    score: 'text-zinc-500'   },
 }
 
 // ── formatting helpers ────────────────────────────────────────────────────────
@@ -24,9 +24,9 @@ const fmtVol = (n) =>
 const fmtPct  = (n) => (n == null ? '—' : `${(n * 100).toFixed(1)}%`)
 const fmtNum  = (n, dec = 3) => (n == null ? '—' : Number(n).toFixed(dec))
 const fmtDate = (s) => {
-  if (!s) return '—'
-  const d = new Date(s.replace(' UTC', 'Z'))
-  return isNaN(d) ? s : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  if (s == null || s === '') return '—'
+  const d = new Date(String(s).replace(' UTC', 'Z'))
+  return isNaN(d) ? String(s) : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 // ── column definitions ────────────────────────────────────────────────────────
@@ -37,14 +37,14 @@ const COLUMNS = [
   { key: 'suspicion_score',      label: 'Price IF',     width: 'w-28',   align: 'text-right', tooltip: 'IsolationForest on price features only' },
   { key: 'iso_score',            label: 'IsoForest',    width: 'w-28',   align: 'text-right', tooltip: 'IsolationForest on all 14 features' },
   { key: 'pu_prob',              label: 'PU-LGB',       width: 'w-20',   align: 'text-right', tooltip: 'PU-LightGBM adjusted probability' },
-  { key: 'insider_trading_prob', label: 'Insider Prob', width: 'w-28',   align: 'text-right', tooltip: 'Ensemble: 0.5×PU + 0.3×ISO + 0.2×OCSVM' },
+  { key: 'insider_trading_prob', label: 'Score',        width: 'w-28',   align: 'text-right', tooltip: 'Ensemble score: 0.5×PU + 0.3×ISO + 0.2×OCSVM' },
 ]
 
 // ── sub-components ────────────────────────────────────────────────────────────
 function ChevronIcon({ open }) {
   return (
     <svg
-      className={`w-5 h-5 text-blue-800 transition-transform duration-200 shrink-0 ${open ? 'rotate-180' : ''}`}
+      className={`w-5 h-5 text-blue-800 transition-transform duration-200 shrink-0 ${open ? 'rotate-0' : '-rotate-90'}`}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -194,8 +194,7 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
     <div>
       {/* ── Column header row ── */}
       <div className="hidden sm:flex items-center gap-x-3 px-4 py-2 border-b border-zinc-100 bg-zinc-50 text-[11px] font-medium text-zinc-400 uppercase tracking-wide select-none">
-        <span className="w-4 shrink-0"></span>
-        <span className="w-7 shrink-0">#</span>
+        <span className="w-20 shrink-0"></span>
         <span className="flex-1">Market</span>
         {COLUMNS.slice(2).map((col) => (
           <button
@@ -227,21 +226,23 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
             : null
 
           return (
-            <div key={i} className={colors.left}>
+            <div key={i}>
               {/* ── Collapsed row ── */}
               <button
                 onClick={() => onRowClick(isOpen ? null : row)}
-                className={`w-full text-left px-4 py-2.5 transition-colors duration-100 cursor-pointer ${
-                  isOpen ? 'bg-orange-50/40' : 'hover:bg-zinc-100/70'
+                className={`group w-full text-left px-4 py-2.5 transition-colors duration-100 cursor-pointer ${
+                  isOpen ? 'bg-orange-50/40' : 'hover:bg-blue-50'
                 }`}
                 aria-expanded={isOpen}
               >
                 {/* Desktop */}
                 <div className="hidden sm:flex items-center gap-x-3">
-                  <ChevronIcon open={isOpen} />
-                  <span className="w-7 shrink-0 text-zinc-500 text-[12px] tabular-nums font-mono">{i + 1}</span>
+                  <span className="w-20 shrink-0 flex items-center gap-1">
+                    <ChevronIcon open={isOpen} />
+                    <span className="text-[10px] font-mono text-blue-800 uppercase tracking-wide">details</span>
+                  </span>
                   <span
-                    className="flex-1 text-zinc-800 text-[13px] truncate pr-2"
+                    className="flex-1 text-zinc-800 text-[13px] truncate pr-2 group-hover:underline"
                     title={row.question}
                   >
                     {row.question}
@@ -276,7 +277,7 @@ export default function SuspicionTable({ data, scored = {}, wallet = {}, onRowCl
                   <ChevronIcon open={isOpen} />
                   <span className="text-zinc-500 text-xs tabular-nums mt-0.5 shrink-0 w-5">{i + 1}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-zinc-800 text-sm leading-snug mb-1.5">{row.question}</p>
+                    <p className="text-zinc-800 text-sm leading-snug mb-1.5 group-hover:underline">{row.question}</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`tabular-nums font-bold text-sm ${colors.score}`}>
                         {(getScore(row) * 100).toFixed(1)}%

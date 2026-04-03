@@ -69,6 +69,12 @@ export default function VolumeScatter({ data }) {
   ]
 
   return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center gap-4 mb-2 text-[10px] font-mono text-zinc-500">
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-600 inline-block" /> High ≥35%</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-600 inline-block" /> Medium ≥25%</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block" /> Low</span>
+      </div>
     <ResponsiveContainer width="100%" height="100%">
       <ScatterChart margin={{ top: 12, right: 20, bottom: 28, left: 8 }}>
         <CartesianGrid stroke="#f4f4f5" />
@@ -117,5 +123,6 @@ export default function VolumeScatter({ data }) {
         />
       </ScatterChart>
     </ResponsiveContainer>
+    </div>
   )
 }

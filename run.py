@@ -137,6 +137,10 @@ def main():
         df_combined, rf_model, rf_scaler, _ = train_classifier(
             df_combined, n_neg=args.n_neg
         )
+        df_markets = state.get("df_markets")
+        if df_markets is not None and "end_date" in df_markets.columns:
+            end_dates = df_markets[["question", "end_date"]].drop_duplicates("question")
+            df_combined = df_combined.drop(columns=["end_date"], errors="ignore").merge(end_dates, on="question", how="left")
         cp.save("df_combined", df_combined)
         _write_outputs(df_combined, state.get("df_scored"), state.get("df_wallet_agg"))
         if args.push:
@@ -227,6 +231,9 @@ def main():
     _preflight(df_combined)
     print("\n=== Training ensemble classifier (PU-LightGBM + IsoForest + OC-SVM) ===")
     df_combined, rf_model, rf_scaler, _ = train_classifier(df_combined, n_neg=args.n_neg)
+    if "end_date" in df_markets.columns:
+        end_dates = df_markets[["question", "end_date"]].drop_duplicates("question")
+        df_combined = df_combined.drop(columns=["end_date"], errors="ignore").merge(end_dates, on="question", how="left")
     cp.save("df_combined", df_combined)
 
     # ── Write outputs ─────────────────────────────────────────────────────
