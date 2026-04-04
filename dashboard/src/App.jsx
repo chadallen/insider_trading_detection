@@ -111,7 +111,7 @@ export default function App() {
                 <h2 className="text-[13px] font-medium text-zinc-700">
                   Resolved Markets — Ranked by Insider Trading Probability
                 </h2>
-                <p className="text-zinc-700 text-[12px] mt-0.5">
+                <p className="hidden sm:block text-zinc-700 text-[12px] mt-0.5">
                   Click any row to expand signal detail. Click column headers to sort.
                 </p>
               </div>
