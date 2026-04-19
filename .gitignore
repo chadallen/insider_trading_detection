@@ -8,3 +8,11 @@ venv/
 .DS_Store
 .claude/worktrees/
 .vercel
+.vscode/
+.claire/
+scratch.md
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
