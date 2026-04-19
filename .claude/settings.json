@@ -4,7 +4,7 @@
       {
         "hooks": [
           {
-            "command": "bd prime",
+            "command": "bd sync",
             "type": "command"
           }
         ],
