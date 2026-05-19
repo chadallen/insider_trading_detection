@@ -51,7 +51,7 @@ Required in `.env` at repo root (gitignored, never committed):
 ```
 DUNE_API_KEY=...
 GITHUB_TOKEN=...              # only needed for --push
-GITHUB_REPO=chadallen/insider_trading_detection
+GITHUB_REPO=chadallen/polymarket-insider-detection
 GITHUB_BRANCH=main
 TOP_N_MARKETS=50
 POLYGONSCAN_API_KEY=...       # optional; get free key at polygonscan.com

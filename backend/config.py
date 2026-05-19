@@ -5,7 +5,7 @@ All values can be overridden with environment variables.
 import os
 
 # ── GitHub ────────────────────────────────────────────────────────────────
-GITHUB_REPO   = os.environ.get("GITHUB_REPO",   "chadallen/insider_trading_detection")
+GITHUB_REPO   = os.environ.get("GITHUB_REPO",   "chadallen/polymarket-insider-detection")
 GITHUB_BRANCH = os.environ.get("GITHUB_BRANCH", "main")
 GITHUB_TOKEN  = os.environ.get("GITHUB_TOKEN",  "")
 
