@@ -432,10 +432,15 @@ def _write_outputs(df_combined, df_scored, df_wallet_agg):
     for d in dirs:
         os.makedirs(d, exist_ok=True)
 
+    # Strip labeled-only rows from dashboard output — they're for training only
+    df_combined_out = df_combined
+    if df_combined is not None and "is_labeled_only" in df_combined.columns:
+        df_combined_out = df_combined[~df_combined["is_labeled_only"].fillna(False)]
+
     pairs = [
-        (df_combined,   "df_combined.csv"),
-        (df_scored,     "df_scored.csv"),
-        (df_wallet_agg, "df_wallet_agg.csv"),
+        (df_combined_out, "df_combined.csv"),
+        (df_scored,       "df_scored.csv"),
+        (df_wallet_agg,   "df_wallet_agg.csv"),
     ]
     for df, fname in pairs:
         if df is not None:
