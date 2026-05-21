@@ -19,7 +19,18 @@ POLYGONSCAN_API_KEY = os.environ.get("POLYGONSCAN_API_KEY", "")
 TOP_N_MARKETS      = int(os.environ.get("TOP_N_MARKETS", "50"))  # emergency override; not applied by default
 MIN_VOLUME_USD     = 1_000_000    # Markets below this are excluded (lowered from $10M to capture lower-volume labeled cases)
 MIN_END_DATE       = "2025-01-01"
-POLITICS_TAG_ID    = 2
+FETCH_TAG_IDS = [
+    2,       # Politics
+    100265,  # Geopolitics
+    596,     # Culture
+    1401,    # Tech
+    101999,  # Big Tech
+    107,     # Business
+    120,     # Finance
+    101970,  # World
+    100328,  # Economy
+]
+POLITICS_TAG_ID    = 2  # alias kept for any code that references it directly
 MARKETS_PER_PAGE   = 100
 MAX_PAGES          = 10
 PRICE_HOURS_BEFORE = 48  # Hours of price history to fetch before resolution

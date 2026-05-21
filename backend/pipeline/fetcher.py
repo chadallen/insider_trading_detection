@@ -8,9 +8,21 @@ import requests
 import pandas as pd
 from datetime import datetime, timedelta, timezone
 from backend.config import (
-    POLITICS_TAG_ID, MARKETS_PER_PAGE, MAX_PAGES,
+    FETCH_TAG_IDS, MARKETS_PER_PAGE, MAX_PAGES,
     MIN_VOLUME_USD, MIN_END_DATE, PRICE_HOURS_BEFORE,
 )
+
+TAG_NAMES = {
+    2:      "Politics",
+    100265: "Geopolitics",
+    596:    "Culture",
+    1401:   "Tech",
+    101999: "Big Tech",
+    107:    "Business",
+    120:    "Finance",
+    101970: "World",
+    100328: "Economy",
+}
 
 
 def _parse_markets_from_events(events: list, seen_ids: set) -> list:
@@ -42,32 +54,51 @@ def _parse_markets_from_events(events: list, seen_ids: set) -> list:
 
 def fetch_markets() -> pd.DataFrame:
     """
-    Fetch closed political markets from Gamma API.
+    Fetch closed markets from Gamma API across all FETCH_TAG_IDS.
     Filters: volume >= MIN_VOLUME_USD, end_date >= MIN_END_DATE.
+    Deduplicates on conditionId across all tags.
     """
     all_markets, seen_ids = [], set()
-    print(f"Fetching closed political markets (tag_id={POLITICS_TAG_ID})...")
+    tag_counts: dict[int, int] = {}
 
-    for page in range(MAX_PAGES):
-        offset = page * MARKETS_PER_PAGE
-        url = (
-            f"https://gamma-api.polymarket.com/events"
-            f"?tag_id={POLITICS_TAG_ID}&closed=true"
-            f"&limit={MARKETS_PER_PAGE}&offset={offset}"
-            f"&order=volume&ascending=false"
-        )
-        events = requests.get(url, timeout=30).json()
-        if not events:
-            print(f"  No more results at offset {offset}")
-            break
+    print(f"Fetching closed markets across {len(FETCH_TAG_IDS)} tag categories...")
 
-        new_count_before = len(all_markets)
-        all_markets.extend(_parse_markets_from_events(events, seen_ids))
-        new_count = len(all_markets) - new_count_before
+    for tag_id in FETCH_TAG_IDS:
+        tag_name = TAG_NAMES.get(tag_id, str(tag_id))
+        tag_start = len(all_markets)
+        print(f"\n  [{tag_name}] tag_id={tag_id}")
 
-        earliest = min((m["end_date"] for m in all_markets), default="?")
-        print(f"  Page {page + 1}: +{new_count} | Total: {len(all_markets)} | Earliest: {earliest[:10]}")
-        time.sleep(0.3)
+        for page in range(MAX_PAGES):
+            offset = page * MARKETS_PER_PAGE
+            url = (
+                f"https://gamma-api.polymarket.com/events"
+                f"?tag_id={tag_id}&closed=true"
+                f"&limit={MARKETS_PER_PAGE}&offset={offset}"
+                f"&order=volume&ascending=false"
+            )
+            events = requests.get(url, timeout=30).json()
+            if not events:
+                print(f"    No more results at offset {offset}")
+                break
+
+            count_before = len(all_markets)
+            all_markets.extend(_parse_markets_from_events(events, seen_ids))
+            new_count = len(all_markets) - count_before
+
+            print(f"    Page {page + 1}: +{new_count} new | Running total: {len(all_markets)}")
+            time.sleep(0.3)
+
+        tag_counts[tag_id] = len(all_markets) - tag_start
+
+    # Per-tag summary
+    print(f"\n{'─' * 42}")
+    print(f"  {'Tag':<12} {'ID':>7}  {'Markets':>8}")
+    print(f"{'─' * 42}")
+    for tag_id in FETCH_TAG_IDS:
+        tag_name = TAG_NAMES.get(tag_id, str(tag_id))
+        print(f"  {tag_name:<12} {tag_id:>7}  {tag_counts[tag_id]:>8}")
+    print(f"{'─' * 42}")
+    print(f"  {'TOTAL':<12} {'':>7}  {len(all_markets):>8} (before filters)")
 
     df = pd.DataFrame(all_markets)
     df = df[df["volume"] >= MIN_VOLUME_USD].reset_index(drop=True)
@@ -79,35 +110,39 @@ def fetch_markets() -> pd.DataFrame:
 
 def fetch_live_markets(hours_ahead: int = 48, min_volume: float = 1_000_000) -> pd.DataFrame:
     """
-    Fetch open political markets resolving within the next `hours_ahead` hours.
-    Sets resolution_time = now so price histories are pulled up to the present.
-    Filters: volume >= min_volume.
+    Fetch open markets resolving within the next `hours_ahead` hours across
+    all FETCH_TAG_IDS. Sets resolution_time = now so price histories are
+    pulled up to the present. Filters: volume >= min_volume.
     """
     now = datetime.now(timezone.utc)
     cutoff = now + timedelta(hours=hours_ahead)
     all_markets, seen_ids = [], set()
     print(
-        f"Fetching live political markets ending within {hours_ahead}h "
-        f"(tag_id={POLITICS_TAG_ID}, vol >= ${min_volume:,.0f})..."
+        f"Fetching live markets ending within {hours_ahead}h across "
+        f"{len(FETCH_TAG_IDS)} tag categories (vol >= ${min_volume:,.0f})..."
     )
 
-    for page in range(MAX_PAGES):
-        offset = page * MARKETS_PER_PAGE
-        url = (
-            f"https://gamma-api.polymarket.com/events"
-            f"?tag_id={POLITICS_TAG_ID}&closed=false&active=true"
-            f"&limit={MARKETS_PER_PAGE}&offset={offset}"
-            f"&order=volume&ascending=false"
-        )
-        events = requests.get(url, timeout=30).json()
-        if not events:
-            break
+    for tag_id in FETCH_TAG_IDS:
+        tag_name = TAG_NAMES.get(tag_id, str(tag_id))
+        print(f"\n  [{tag_name}] tag_id={tag_id}")
 
-        new_count_before = len(all_markets)
-        all_markets.extend(_parse_markets_from_events(events, seen_ids))
-        new_count = len(all_markets) - new_count_before
-        print(f"  Page {page + 1}: +{new_count} | Total so far: {len(all_markets)}")
-        time.sleep(0.3)
+        for page in range(MAX_PAGES):
+            offset = page * MARKETS_PER_PAGE
+            url = (
+                f"https://gamma-api.polymarket.com/events"
+                f"?tag_id={tag_id}&closed=false&active=true"
+                f"&limit={MARKETS_PER_PAGE}&offset={offset}"
+                f"&order=volume&ascending=false"
+            )
+            events = requests.get(url, timeout=30).json()
+            if not events:
+                break
+
+            new_count_before = len(all_markets)
+            all_markets.extend(_parse_markets_from_events(events, seen_ids))
+            new_count = len(all_markets) - new_count_before
+            print(f"    Page {page + 1}: +{new_count} | Running total: {len(all_markets)}")
+            time.sleep(0.3)
 
     if not all_markets:
         print("No live markets found.")
