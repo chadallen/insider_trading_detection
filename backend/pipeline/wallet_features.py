@@ -543,3 +543,78 @@ def compute_cross_market_wallet_flags(
 #     print(f"Cross-market wallet flag query ({len(questions)} markets, min_shared={min_shared_markets})...")
 #     df, _ = run_query(sql, label="cross_market_wallet_flags")
 #     return df
+
+
+# ── Build and cache labeled case wallet features ──────────────────────────
+
+def build_and_cache_labeled_features() -> pd.DataFrame:
+    """
+    Runs one Dune query per labeled case, extracts wallet features, and
+    writes the result to data/labeled_features.pkl via checkpoints.py.
+
+    Returns a DataFrame with one row per labeled case and columns:
+      question, label, new_wallet_ratio, new_wallet_ratio_6h, burst_score,
+      order_flow_imbalance, wallet_age_median_days, cross_market_wallet_flag
+
+    Price features are out of scope — NaN price features are imputed to the
+    median at training time. wallet_age_median_days is also NaN because the
+    labeled-case Dune SQL does not return per-wallet addresses.
+
+    ~52 Dune credits total (one query per labeled case).
+    """
+    import backend.checkpoints as cp
+    import backend.pipeline.dune as _dune_mod
+
+    # ── Step 1: Fetch raw Dune results per labeled case ──────────────────
+    dune_results = fetch_labeled_market_trades()
+
+    # ── Step 2: Extract wallet features ──────────────────────────────────
+    wallet_features = extract_wallet_features(dune_results)
+
+    # ── Step 3: Load canonical_question and label from labeled_cases.csv ─
+    labeled_df = load_labeled_cases()
+    # Build key → (canonical_question, label) lookup
+    key_to_meta = {
+        row["key"]: {
+            "question": row.get("canonical_question", row["key"]),
+            "label": row["label"],
+        }
+        for _, row in labeled_df.iterrows()
+    }
+
+    # ── Step 4: Assemble one row per labeled case ─────────────────────────
+    WALLET_COLS = [
+        "new_wallet_ratio",
+        "new_wallet_ratio_6h",
+        "burst_score",
+        "order_flow_imbalance",
+    ]
+
+    records = []
+    for key in LABELED_MARKET_CONFIGS:
+        meta = key_to_meta.get(key, {})
+        feats = wallet_features.get(key, {})
+        row: dict = {
+            "question": meta.get("question", key),
+            "label":    meta.get("label", ""),
+        }
+        for col in WALLET_COLS:
+            row[col] = feats.get(col, float("nan"))
+        # wallet_age_median_days: labeled SQL returns no per-wallet addresses,
+        # so Polygonscan lookup is not possible — leave as NaN for median imputation.
+        row["wallet_age_median_days"] = float("nan")
+        # cross_market_wallet_flag: no top_wallet_addresses available,
+        # default to 0 (conservative: no cross-market signal detected).
+        row["cross_market_wallet_flag"] = 0
+        records.append(row)
+
+    df_labeled = pd.DataFrame(records)
+
+    # ── Step 5: Print credit cost and save ────────────────────────────────
+    # Access the live module-level counter (not a snapshot copy)
+    print(f"\nSession Dune credits used: {_dune_mod._session_credits_used:.4f}")
+    print(f"Labeled features DataFrame shape: {df_labeled.shape}")
+    cp.save("labeled_features", df_labeled)
+    print("Saved data/labeled_features.pkl")
+
+    return df_labeled

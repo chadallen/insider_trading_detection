@@ -46,6 +46,7 @@ def parse_args():
     p.add_argument("--live",             action="store_true", help="POC: score open markets resolving within --hours-ahead hours")
     p.add_argument("--hours-ahead",      type=int, default=48, help="Hours ahead to look for live markets (default: 48)")
     p.add_argument("--live-min-volume",  type=float, default=1_000_000, help="Min volume for live markets (default: 1000000)")
+    p.add_argument("--refresh-labeled",  action="store_true", help="Re-fetch labeled case wallet features from Dune (~52 credits) and write data/labeled_features.pkl")
     return p.parse_args()
 
 
@@ -112,12 +113,21 @@ def main():
     from backend.pipeline.price_features import build_price_features, score_with_isolation_forest
     from backend.pipeline.wallet_features import (
         fetch_top_n_wallet_data, fetch_wallet_age_features, compute_cross_market_wallet_flags,
+        build_and_cache_labeled_features,
     )
     from backend.pipeline.scorer import merge_features, train_classifier
     from backend.config import POLYGONSCAN_API_KEY
 
     # top_n is None unless --top-n is explicitly passed; None means "all markets"
     top_n = args.top_n  # may be None
+
+    # ── Refresh labeled case features from Dune ───────────────────────────
+    if args.refresh_labeled:
+        print("Refreshing labeled case features from Dune (~52 credits)...")
+        df_labeled = build_and_cache_labeled_features()
+        print(f"\nLabeled features shape: {df_labeled.shape}")
+        print(f"Columns: {df_labeled.columns.tolist()}")
+        return
 
     # ── Classifier-only mode: load df_combined, retrain, save ────────────
     if args.classifier_only:

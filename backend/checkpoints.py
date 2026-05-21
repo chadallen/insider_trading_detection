@@ -38,20 +38,23 @@ def load(name: str):
 
 def load_all():
     return {
-        "df_markets":    load("df_markets"),
-        "df_scored":     load("df_scored"),
-        "histories":     load("histories"),
-        "dune_results":  load("dune_results"),
-        "df_wallet_agg": load("df_wallet_agg"),
-        "df_combined":   load("df_combined"),
+        "df_markets":       load("df_markets"),
+        "df_scored":        load("df_scored"),
+        "histories":        load("histories"),
+        "dune_results":     load("dune_results"),
+        "df_wallet_agg":    load("df_wallet_agg"),
+        "df_combined":      load("df_combined"),
+        "labeled_features": load("labeled_features"),
     }
 
 
 def save_all(df_markets=None, df_scored=None, histories=None,
-             dune_results=None, df_wallet_agg=None, df_combined=None):
-    save("df_markets",    df_markets)
-    save("df_scored",     df_scored)
-    save("histories",     histories)
-    save("dune_results",  dune_results)
-    save("df_wallet_agg", df_wallet_agg)
-    save("df_combined",   df_combined)
+             dune_results=None, df_wallet_agg=None, df_combined=None,
+             labeled_features=None):
+    save("df_markets",       df_markets)
+    save("df_scored",        df_scored)
+    save("histories",        histories)
+    save("dune_results",     dune_results)
+    save("df_wallet_agg",    df_wallet_agg)
+    save("df_combined",      df_combined)
+    save("labeled_features", labeled_features)
