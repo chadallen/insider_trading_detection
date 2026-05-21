@@ -87,6 +87,7 @@ def build_price_features(df_markets: pd.DataFrame, histories: dict) -> pd.DataFr
             "question":        row["question"],
             "volume":          row["volume"],
             "end_date":        row.get("end_date"),
+            "market_url":      row.get("market_url", ""),
             "surprise_score":  surprise,
             "late_move_ratio": late,
             **feats,
