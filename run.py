@@ -114,7 +114,7 @@ def main():
         fetch_top_n_wallet_data, fetch_wallet_age_features, compute_cross_market_wallet_flags,
     )
     from backend.pipeline.scorer import merge_features, train_classifier
-    from backend.config import TOP_N_MARKETS, POLYGONSCAN_API_KEY
+    from backend.config import POLYGONSCAN_API_KEY
 
     # top_n is None unless --top-n is explicitly passed; None means "all markets"
     top_n = args.top_n  # may be None

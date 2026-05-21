@@ -5,7 +5,6 @@ Corresponds to notebook Cells 7–11.
 import os
 import re
 import pandas as pd
-from backend.config import TOP_N_MARKETS
 from backend.pipeline.dune import run_query, sql_quote
 
 
