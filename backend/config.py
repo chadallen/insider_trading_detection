@@ -16,7 +16,7 @@ DUNE_API_KEY  = os.environ.get("DUNE_API_KEY", "")
 POLYGONSCAN_API_KEY = os.environ.get("POLYGONSCAN_API_KEY", "")
 
 # ── Pipeline settings ─────────────────────────────────────────────────────
-TOP_N_MARKETS      = int(os.environ.get("TOP_N_MARKETS", "50"))
+TOP_N_MARKETS      = int(os.environ.get("TOP_N_MARKETS", "50"))  # emergency override; not applied by default
 MIN_VOLUME_USD     = 10_000_000   # Markets below this are excluded
 MIN_END_DATE       = "2025-01-01"
 POLITICS_TAG_ID    = 2

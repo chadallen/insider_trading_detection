@@ -116,7 +116,8 @@ def main():
     from backend.pipeline.scorer import merge_features, train_classifier
     from backend.config import TOP_N_MARKETS, POLYGONSCAN_API_KEY
 
-    top_n = args.top_n or TOP_N_MARKETS
+    # top_n is None unless --top-n is explicitly passed; None means "all markets"
+    top_n = args.top_n  # may be None
 
     # ── Classifier-only mode: load df_combined, retrain, save ────────────
     if args.classifier_only:
@@ -182,7 +183,10 @@ def main():
     # ── Wallet features (optional, ~4 credits) ───────────────────────────
     df_wallet_agg = state.get("df_wallet_agg")
     if not args.skip_dune:
-        print(f"\n=== Top-{top_n} wallet query from Dune (~4 credits) ===")
+        if top_n is not None:
+            print(f"\n=== Wallet query from Dune — top {top_n} markets (override) ===")
+        else:
+            print(f"\n=== Wallet query from Dune — all {len(df_scored)} markets ===")
         df_wallet_agg = fetch_top_n_wallet_data(df_scored, df_markets, top_n=top_n)
     else:
         print("\n=== Skipping Dune wallet query (--skip-dune) ===")
@@ -287,8 +291,12 @@ def _run_live(args, cp, build_price_features, score_with_isolation_forest,
     # 3. Wallet features from Dune (uses now as cutoff since resolution_time = now)
     df_wallet_agg = None
     if not args.skip_dune:
-        live_top_n = min(top_n, len(df_scored))
-        print(f"\n=== Wallet query for top {live_top_n} live markets (~4 credits) ===")
+        if top_n is not None:
+            live_top_n = min(top_n, len(df_scored))
+            print(f"\n=== Wallet query for top {live_top_n} live markets (override) ===")
+        else:
+            live_top_n = None
+            print(f"\n=== Wallet query for all {len(df_scored)} live markets ===")
         df_wallet_agg = fetch_top_n_wallet_data(df_scored, df_markets, top_n=live_top_n)
 
     # 4. Merge + classify

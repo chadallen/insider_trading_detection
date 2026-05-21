@@ -219,15 +219,20 @@ def extract_wallet_features(dune_results: dict) -> dict:
 def fetch_top_n_wallet_data(
     df_scored: pd.DataFrame,
     df_markets: pd.DataFrame,
-    top_n: int = TOP_N_MARKETS,
+    top_n: int | None = None,
 ) -> pd.DataFrame:
     """
-    Fetches wallet features for top N markets by suspicion_score.
+    Fetches wallet features for all markets in df_scored (no pre-filter by default).
+    Pass top_n as an emergency override to limit to the top-N markets by
+    suspicion_score (e.g. via --top-n CLI flag).
+
     Uses per-market end_date (not a rolling window) so older resolved
     markets are included. Also computes new_wallet_ratio_12h/6h.
-    ~4 credits.
     """
-    top_markets = df_scored.nlargest(top_n, "suspicion_score")
+    if top_n is not None:
+        top_markets = df_scored.nlargest(top_n, "suspicion_score")
+    else:
+        top_markets = df_scored
 
     # Build per-market end_date lookup from df_markets
     end_dates = (
@@ -379,7 +384,11 @@ LEFT JOIN concentration c      ON o.question = c.question
 LEFT JOIN top_wallet_addrs wa  ON o.question = wa.question
 """
 
-    print(f"Wallet query for top {top_n} markets...")
+    n_markets = len(top_markets)
+    if top_n is not None:
+        print(f"Wallet query for top {top_n} markets (override)...")
+    else:
+        print(f"Wallet query for all {n_markets} markets...")
     df_wallet_agg, _ = run_query(sql, label="top_n_wallet", timeout=300)
 
     if not df_wallet_agg.empty:
