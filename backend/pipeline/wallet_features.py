@@ -199,14 +199,14 @@ def extract_wallet_features(dune_results: dict) -> dict:
             print(f"  {name}: no data")
             continue
         row = df.iloc[0]
-        feats = {col: (row.get(src) or 0) for src, col in _COLUMN_MAP.items()}
+        feats = {col: float(row.get(src) or 0) for src, col in _COLUMN_MAP.items()}
         wallet_features[name] = feats
         flag = " LOW VOLUME" if feats.get("total_volume", 0) < MIN_VOLUME_USD else ""
         print(
             f"{name.upper()} ({LABELED_MARKET_CONFIGS[name]['label']}){flag}\n"
             f"  Vol ${feats['total_volume']:>14,.0f} | Wallets {int(feats['unique_wallets']):,}\n"
             f"  New 6h {feats['new_wallet_ratio_6h']:.1%} | OFI {feats['order_flow_imbalance']:.3f} "
-            f"| Burst {int(feats['burst_score'])} | Dir {feats['directional_consensus']:.1%} "
+            f"| Burst {float(feats['burst_score']):.3f} | Dir {feats['directional_consensus']:.1%} "
             f"| Conc {feats.get('wallet_concentration', 0):.3f}\n"
         )
     print(f"Extracted features for {len(wallet_features)}/{len(LABELED_MARKET_CONFIGS)} markets")

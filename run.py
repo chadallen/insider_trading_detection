@@ -396,6 +396,12 @@ def _merge_labeled_features(df_combined: pd.DataFrame, df_labeled) -> pd.DataFra
     combined = combined.drop_duplicates(subset=["question"], keep="first")
     # Rows from the pipeline get is_labeled_only=False (they were NaN after concat)
     combined["is_labeled_only"] = combined["is_labeled_only"].fillna(False)
+    # Coerce wallet feature columns to numeric — guards against string values
+    # in stale labeled_features.pkl built before the float() fix.
+    from backend.pipeline.scorer import MODEL_WALLET_FEATURES
+    for col in MODEL_WALLET_FEATURES:
+        if col in combined.columns:
+            combined[col] = pd.to_numeric(combined[col], errors="coerce")
     added = len(combined) - before
     total = len(combined)
     print(f"  Added {added} labeled case rows to df_combined (total: {total})")
