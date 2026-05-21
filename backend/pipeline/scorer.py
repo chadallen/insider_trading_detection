@@ -267,12 +267,34 @@ def train_classifier(
     pos_mask = df_scoreable["is_positive"].values
     confirmed_mask = df_scoreable["is_confirmed"].values
 
+    # Determine which rows are labeled-only (backward compat: treat missing column as False)
+    if "is_labeled_only" in df_scoreable.columns:
+        labeled_only_mask = df_scoreable["is_labeled_only"].fillna(False).astype(bool).values
+    else:
+        labeled_only_mask = np.zeros(len(df_scoreable), dtype=bool)
+
     # ── Step 5: PU Learning — LightGBM (two-step Elkan & Noto) ───────────
+    # The unlabeled pool is current pipeline markets only: rows that are NOT
+    # positive AND NOT labeled-only.  Labeled-only rows that are NOT matched as
+    # positives must be excluded so they don't corrupt the unlabeled set when
+    # the positive/unlabeled ratio is inverted.
     print("\n  [1/3] PU Learning — LightGBM")
-    y = pos_mask.astype(int)
+
+    # Build training mask: positives + unlabeled pipeline markets (exclude
+    # labeled-only rows that are not positives)
+    unlabeled_mask = ~pos_mask & ~labeled_only_mask
+    train_mask = pos_mask | unlabeled_mask
+    n_unlabeled    = int(unlabeled_mask.sum())
+    n_labeled_only = int((labeled_only_mask & ~pos_mask).sum())
+
+    print(f"     {pos_mask.sum()} positives | {n_unlabeled} unlabeled | "
+          f"{n_labeled_only} labeled-only (excluded from negatives)")
+
+    X_train = X_lgbm[train_mask]
+    y_train = pos_mask[train_mask].astype(int)
     sample_weights = np.where(
-        pos_mask,
-        df_scoreable["label_weight"].values,
+        pos_mask[train_mask],
+        df_scoreable["label_weight"].values[train_mask],
         1.0,
     )
 
@@ -290,7 +312,7 @@ def train_classifier(
         random_state=42,
         verbose=-1,
     )
-    lgbm_model.fit(X_lgbm, y, sample_weight=sample_weights)
+    lgbm_model.fit(X_train, y_train, sample_weight=sample_weights)
 
     raw_pu = lgbm_model.predict_proba(X_lgbm)[:, 1]
 
@@ -299,7 +321,6 @@ def train_classifier(
     c = max(c, 0.01)   # guard against division by near-zero
     pu_prob = np.clip(raw_pu / c, 0.0, 1.0)
     df_scoreable["pu_prob"] = pu_prob
-    print(f"     {pos_mask.sum()} positives | {(~pos_mask).sum()} unlabeled | c={c:.3f}")
 
     # ── Step 6: Unified IsolationForest ───────────────────────────────────
     print("  [2/3] Unified IsolationForest")

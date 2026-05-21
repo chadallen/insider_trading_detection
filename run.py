@@ -390,8 +390,12 @@ def _merge_labeled_features(df_combined: pd.DataFrame, df_labeled) -> pd.DataFra
         return df_combined
 
     before = len(df_combined)
+    df_labeled = df_labeled.copy()
+    df_labeled["is_labeled_only"] = True
     combined = pd.concat([df_combined, df_labeled], ignore_index=True)
     combined = combined.drop_duplicates(subset=["question"], keep="first")
+    # Rows from the pipeline get is_labeled_only=False (they were NaN after concat)
+    combined["is_labeled_only"] = combined["is_labeled_only"].fillna(False)
     added = len(combined) - before
     total = len(combined)
     print(f"  Added {added} labeled case rows to df_combined (total: {total})")
