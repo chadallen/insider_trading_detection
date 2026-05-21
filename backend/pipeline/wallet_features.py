@@ -199,7 +199,7 @@ def extract_wallet_features(dune_results: dict) -> dict:
             print(f"  {name}: no data")
             continue
         row = df.iloc[0]
-        feats = {col: row.get(src, 0) for src, col in _COLUMN_MAP.items()}
+        feats = {col: (row.get(src) or 0) for src, col in _COLUMN_MAP.items()}
         wallet_features[name] = feats
         flag = " LOW VOLUME" if feats.get("total_volume", 0) < MIN_VOLUME_USD else ""
         print(
