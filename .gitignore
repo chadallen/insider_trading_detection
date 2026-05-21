@@ -17,11 +17,3 @@ scratch.md
 *.db
 .beads-credential-key
 
-# Internal Claude Code / agent working files
-.beads/
-.claude/
-CLAUDE.md
-AGENTS.md
-PRD.md
-plan.MD
-docs/plans/
